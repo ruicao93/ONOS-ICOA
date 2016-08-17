@@ -41,7 +41,6 @@
         <module>isis</module>
         <module>snmp</module>
         <module>bmv2</module>
-        <module>oxp</module>
     </modules>
 
     <dependencies>
