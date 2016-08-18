@@ -37,9 +37,10 @@ public class ONOSLLDP extends LLDP {
     public static final String DEFAULT_DEVICE = "INVALID";
     public static final String DEFAULT_NAME = "ONOS Discovery";
 
-    public static final byte[] LLDP_NICIRA = {0x01, 0x23, 0x20, 0x00, 0x00,
+    //TODO: exchange the value of LLDP_NICIRA and LLDP_MULTICAST to adapt to Ryu oxp
+    public static final byte[]  LLDP_MULTICAST = {0x01, 0x23, 0x20, 0x00, 0x00,
             0x01};
-    public static final byte[] LLDP_MULTICAST = {0x01, (byte) 0x80,
+    public static final byte[] LLDP_NICIRA = {0x01, (byte) 0x80,
             (byte) 0xc2, 0x00, 0x00, 0x0e};
     public static final byte[] BDDP_MULTICAST = {(byte) 0xff, (byte) 0xff,
             (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff};
