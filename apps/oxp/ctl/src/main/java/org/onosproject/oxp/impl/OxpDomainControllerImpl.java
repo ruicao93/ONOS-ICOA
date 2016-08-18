@@ -4,6 +4,7 @@ import org.apache.felix.scr.annotations.*;
 import org.onosproject.core.CoreService;
 import org.onosproject.oxp.OxpDomainController;
 import org.onosproject.oxp.OxpSuper;
+import org.onosproject.oxp.OxpSuperListener;
 import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.DomainId;
@@ -41,6 +42,8 @@ public class OxpDomainControllerImpl implements OxpDomainController {
     private DomainConnector domainConnector = new DomainConnector(this);
 
     private Set<OxpSuperMessageListener> oxpSuperMessageListeners = new CopyOnWriteArraySet<>();
+
+    private Set<OxpSuperListener> oxpSuperListeners = new CopyOnWriteArraySet<>();
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected CoreService coreService;
@@ -84,6 +87,8 @@ public class OxpDomainControllerImpl implements OxpDomainController {
     @Deactivate
     public void deactivate() {
         oxpSuper = null;
+        oxpSuperMessageListeners.clear();
+        oxpSuperListeners.clear();
         domainConnector.stop();
         log.info("Stoped");
     }
@@ -103,8 +108,11 @@ public class OxpDomainControllerImpl implements OxpDomainController {
     }
 
     @Override
-    public boolean superConnect(OxpSuper oxpSuper) {
+    public boolean connectToSuper(OxpSuper oxpSuper) {
         this.oxpSuper = oxpSuper;
+        for (OxpSuperListener listener : oxpSuperListeners) {
+            listener.connectToSuper(oxpSuper);
+        }
         return true;
     }
 
@@ -116,6 +124,16 @@ public class OxpDomainControllerImpl implements OxpDomainController {
     @Override
     public void removeMessageListener(OxpSuperMessageListener listener) {
         oxpSuperMessageListeners.remove(listener);
+    }
+
+    @Override
+    public void addOxpSuperListener(OxpSuperListener listener) {
+        this.oxpSuperListeners.add(listener);
+    }
+
+    @Override
+    public void removeOxpSuperListener(OxpSuperListener listener) {
+        this.oxpSuperListeners.remove(listener);
     }
 
     @Override

@@ -2,7 +2,6 @@ package org.onosproject.oxp.impl;
 
 import org.jboss.netty.channel.Channel;
 import org.onlab.packet.IpAddress;
-import org.onosproject.net.Device;
 import org.onosproject.oxp.OxpDomainController;
 import org.onosproject.oxp.OxpSuper;
 import org.onosproject.oxp.protocol.OXPFactories;
@@ -72,10 +71,6 @@ public class OxpSuper10 implements OxpSuper {
         this.domainController.processMessage(msg);
     }
 
-    @Override
-    public boolean connectSuper() {
-        return this.domainController.superConnect(this);
-    }
 
     @Override
     public OXPFactory factory() {

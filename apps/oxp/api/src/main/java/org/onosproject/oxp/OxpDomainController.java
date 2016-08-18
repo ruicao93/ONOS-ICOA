@@ -24,13 +24,17 @@ public interface OxpDomainController {
      * @param oxpSuper
      * @return
      */
-    boolean superConnect(OxpSuper oxpSuper);
+    boolean connectToSuper(OxpSuper oxpSuper);
 
     boolean isConnectToSuper();
 
     void addMessageListener(OxpSuperMessageListener listener);
 
     void removeMessageListener(OxpSuperMessageListener listener);
+
+    void addOxpSuperListener(OxpSuperListener listener);
+
+    void removeOxpSuperListener(OxpSuperListener listener);
 
     /**
      * send a message to OxpSuperController

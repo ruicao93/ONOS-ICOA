@@ -26,7 +26,6 @@ public interface OxpSuper {
     String channleId();
 
     void disconnectSuper();
-    boolean connectSuper();
 
     void setChannel(Channel channel);
 

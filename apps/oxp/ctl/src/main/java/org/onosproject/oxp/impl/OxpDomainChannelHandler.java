@@ -84,7 +84,7 @@ public class OxpDomainChannelHandler extends IdleStateAwareChannelHandler {
                 h.oxpSuper = new OxpSuper10(h.domainController);
                 h.oxpSuper.setChannel(h.channel);
                 h.oxpSuper.setConnected(true);
-                h.oxpSuper.connectSuper();
+                h.domainController.connectToSuper(h.oxpSuper);
                 h.setState(ACTIVE);
             }
         },

@@ -7,6 +7,8 @@ import org.onosproject.net.host.HostEvent;
 import org.onosproject.net.host.HostListener;
 import org.onosproject.net.host.HostService;
 import org.onosproject.oxp.OxpDomainController;
+import org.onosproject.oxp.OxpSuper;
+import org.onosproject.oxp.OxpSuperListener;
 import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.IPv4Address;
@@ -38,20 +40,24 @@ public class OxpDomainHostManager {
 
     private HostListener hostListener = new InternalHostListener();
     private OxpSuperMessageListener oxpMsgListener = new InternalOxpSuperMsgListener();
+    private OxpSuperListener oxpSuperListener = new InternalOxpSuperListener();
 
     @Activate
     public void activate() {
         oxpVersion = domainController.getOxpVersion();
         oxpFactory = OXPFactories.getFactory(oxpVersion);
         domainController.addMessageListener(oxpMsgListener);
+        domainController.addOxpSuperListener(oxpSuperListener);
         hostService.addListener(hostListener);
-        //updateExistHosts();
+
         log.info("Started");
     }
 
     @Deactivate
     public void deactivate() {
         hostService.removeListener(hostListener);
+        domainController.removeMessageListener(oxpMsgListener);
+        domainController.removeOxpSuperListener(oxpSuperListener);
         log.info("Stoped");
     }
 
@@ -145,6 +151,18 @@ public class OxpDomainHostManager {
 
         @Override
         public void handleOutGoingMessage(List<OXPMessage> msgs) {
+
+        }
+    }
+
+    private class InternalOxpSuperListener implements OxpSuperListener {
+        @Override
+        public void connectToSuper(OxpSuper oxpSuper) {
+            updateExistHosts();
+        }
+
+        @Override
+        public void disconnectFromSuper(OxpSuper oxpSuper) {
 
         }
     }
