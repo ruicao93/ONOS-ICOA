@@ -33,6 +33,15 @@ public class OXPSbpVer10 implements OXPSbp {
         this.sbpData = sbpData;
     }
 
+    OXPSbpVer10(long xid, OXPSbpData sbpData) {
+        this.xid = xid;
+        this.sbpCmpType = null;
+        this.flags = null;
+        this.dataLength = 0;
+        this.sbpXid = 0;
+        this.sbpData = sbpData;
+    }
+
     @Override
     public OXPVersion getVersion() {
         return OXPVersion.OXP_10;
@@ -93,16 +102,17 @@ public class OXPSbpVer10 implements OXPSbp {
             // xid
             long xid = bb.readInt();
             // sbpCmpType
-            OXPSbpCmpType sbpCmpType = OXPSbpCmpTypeSerializerVer10.readFrom(bb);
+            //OXPSbpCmpType sbpCmpType = OXPSbpCmpTypeSerializerVer10.readFrom(bb);
             // flags
-            Set<OXPSbpFlags> flags = OXPSbpFlagsSerializerVer10.readFrom(bb);
+            //Set<OXPSbpFlags> flags = OXPSbpFlagsSerializerVer10.readFrom(bb);
             // dataLength
-            int dataLength = bb.readShort();
+            //int dataLength = bb.readShort();
             // sbpXId
-            long sbpXid = bb.readInt();
+            //long sbpXid = bb.readInt();
             // sbpData
             OXPSbpData sbpData = OXPSbpData.read(bb,length - (bb.readerIndex() - startIndex), OXPVersion.OXP_10);
-            return new OXPSbpVer10(xid, sbpCmpType, flags, (short) dataLength, sbpXid, sbpData);
+            //return new OXPSbpVer10(xid, null, null, (short) 0, 0, sbpData);
+            return new OXPSbpVer10(xid, sbpData);
         }
     }
 
@@ -126,13 +136,13 @@ public class OXPSbpVer10 implements OXPSbp {
             // xid
             bb.writeInt((int) message.xid);
             // sbpCmpType
-            OXPSbpCmpTypeSerializerVer10.writeTo(bb, message.sbpCmpType);
+            //OXPSbpCmpTypeSerializerVer10.writeTo(bb, message.sbpCmpType);
             // flags
-            OXPSbpFlagsSerializerVer10.writeTo(bb, message.flags);
+            //OXPSbpFlagsSerializerVer10.writeTo(bb, message.flags);
             // dataLength
-            bb.writeShort(message.dataLength);
+            //bb.writeShort(message.dataLength);
             // sbpXid
-            bb.writeInt((int) message.sbpXid);
+            //bb.writeInt((int) message.sbpXid);
             // sbpData
             bb.writeBytes(message.sbpData.getData());
             //update length
@@ -149,21 +159,15 @@ public class OXPSbpVer10 implements OXPSbp {
 
     static class Builder implements OXPSbp.Builder {
 
-        private long xid;
-        private OXPSbpCmpType sbpCmpType;
-        private Set<OXPSbpFlags> flags;
-        private short dataLength;
-        private long sbpXid;
+        private long xid = 0;
+        private OXPSbpCmpType sbpCmpType = null;
+        private Set<OXPSbpFlags> flags = null;
+        private short dataLength = 0;
+        private long sbpXid = 0;
         private OXPSbpData sbpData;
 
         @Override
         public OXPSbp build() {
-            if (sbpCmpType == null)
-                throw new NullPointerException("Property sbpCmdType must not be null");
-            if (flags == null)
-                throw new NullPointerException("Property flags must not be null");
-            if (sbpData == null)
-                throw new NullPointerException("Property sbpData must not be null");
             return new OXPSbpVer10(xid, sbpCmpType, flags, dataLength, sbpXid, sbpData);
         }
 

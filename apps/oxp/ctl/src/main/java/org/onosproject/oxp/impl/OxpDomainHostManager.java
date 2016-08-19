@@ -61,56 +61,53 @@ public class OxpDomainHostManager {
         log.info("Stoped");
     }
 
-    private void updateExistHosts() {
+    private void updateExistHosts(OXPHostRequest oxpHostRequest) {
         List<OXPHost> oxpHosts = new ArrayList<>();
         for (Host host : hostService.getHosts()) {
-            oxpHosts.addAll(toActiveOxpHosts(host));
+            oxpHosts.addAll(toOxpHosts(host, OXPHostState.ACTIVE));
         }
-        sendHostChangeMsg(oxpHosts);
+        sendHostChangeMsg(oxpHosts, oxpHostRequest);
     }
 
-
     private void updateHost(Host host) {
-        sendHostChangeMsg(toActiveOxpHosts(host));
+        sendHostChangeMsg(toOxpHosts(host, OXPHostState.ACTIVE), null);
     }
 
     private void removeHost(Host host) {
-        sendHostChangeMsg(toInactiveOxpHosts(host));
+        sendHostChangeMsg(toOxpHosts(host, OXPHostState.INACTIVE), null);
     }
 
-    private void sendHostChangeMsg(List<OXPHost> oxpHosts) {
-        OXPHostUpdate hostUpdateMsg = oxpFactory.buildHostUpdate()
-                .setHosts(oxpHosts)
-                .build();
+    private void sendHostChangeMsg(List<OXPHost> oxpHosts, OXPHostRequest oxpHostRequest) {
+        OXPMessage msg = null;
+        if (null != oxpHostRequest) {
+            msg = oxpFactory.buildHostReply()
+                    .setHosts(oxpHosts)
+                    .setXid(oxpHostRequest.getXid())
+                    .build();
+        } else {
+            msg = oxpFactory.buildHostUpdate()
+                    .setHosts(oxpHosts)
+                    .build();
+        }
+
 
         if (!domainController.isConnectToSuper()) {
             return;
         }
         log.info("Host update,num:{} .", oxpHosts.size());
-        //TODO fix here after test
-        domainController.write(hostUpdateMsg);
+        domainController.write(msg);
     }
-    private List<OXPHost> toActiveOxpHosts(Host host) {
+    private List<OXPHost> toOxpHosts(Host host,OXPHostState oxpHostState) {
         List<OXPHost> hosts = new ArrayList<>();
         for (IpAddress ip :host.ipAddresses()) {
             IPv4Address ipAddress = IPv4Address.of(ip.toOctets());
             MacAddress macAddress = MacAddress.of(host.mac().toBytes());
-            OXPHost oxpHost = OXPHost.of(ipAddress, macAddress, IPv4Address.NO_MASK, OXPHostState.ACTIVE);
+            OXPHost oxpHost = OXPHost.of(ipAddress, macAddress, IPv4Address.NO_MASK, oxpHostState);
             hosts.add(oxpHost);
         }
         return hosts;
     }
-
-    private List<OXPHost> toInactiveOxpHosts(Host host) {
-        List<OXPHost> hosts = new ArrayList<>();
-        for (IpAddress ip :host.ipAddresses()) {
-            IPv4Address ipAddress = IPv4Address.of(ip.toOctets());
-            MacAddress macAddress = MacAddress.of(host.mac().toBytes());
-            OXPHost oxpHost = OXPHost.of(ipAddress, macAddress, IPv4Address.NO_MASK, OXPHostState.INACTIVE);
-            hosts.add(oxpHost);
-        }
-        return hosts;
-    }
+    
     private class InternalHostListener implements HostListener {
         @Override
         public void event(HostEvent event) {
@@ -131,12 +128,12 @@ public class OxpDomainHostManager {
                 default:
             }
             if (null != removedHost) {
-                oxpHosts.addAll(toInactiveOxpHosts(removedHost));
+                oxpHosts.addAll(toOxpHosts(removedHost, OXPHostState.INACTIVE));
             }
             if (null != updatedHost) {
-                oxpHosts.addAll(toActiveOxpHosts(updatedHost));
+                oxpHosts.addAll(toOxpHosts(updatedHost, OXPHostState.ACTIVE));
             }
-            sendHostChangeMsg(oxpHosts);
+            sendHostChangeMsg(oxpHosts, null);
         }
     }
 
@@ -146,7 +143,7 @@ public class OxpDomainHostManager {
             if (msg.getType() != OXPType.OXPT_HOST_REQUEST) {
                 return;
             }
-            updateExistHosts();
+            updateExistHosts((OXPHostRequest) msg);
         }
 
         @Override
@@ -158,7 +155,7 @@ public class OxpDomainHostManager {
     private class InternalOxpSuperListener implements OxpSuperListener {
         @Override
         public void connectToSuper(OxpSuper oxpSuper) {
-            updateExistHosts();
+            updateExistHosts(null);
         }
 
         @Override

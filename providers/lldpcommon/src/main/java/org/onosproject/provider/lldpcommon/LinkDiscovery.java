@@ -21,6 +21,7 @@ import org.jboss.netty.util.Timeout;
 import org.jboss.netty.util.TimerTask;
 import org.onlab.packet.Ethernet;
 import org.onlab.packet.ONOSLLDP;
+import org.onlab.packet.OXPLLDP;
 import org.onlab.util.Timer;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.Device;
@@ -154,6 +155,7 @@ public class LinkDiscovery implements TimerTask {
         }
 
         ONOSLLDP onoslldp = ONOSLLDP.parseONOSLLDP(eth);
+        OXPLLDP oxplldp = OXPLLDP.parseOXPLLDP(eth);
         if (onoslldp != null) {
             Type lt;
             if (notMy(eth.getSourceMAC().toString())) {
@@ -265,6 +267,11 @@ public class LinkDiscovery implements TimerTask {
             OutboundPacket bpkt = createOutBoundBddp(portNumber);
             context.packetService().emit(bpkt);
         }
+        //oxp LLDP
+        OXPLLDP oxplldp = OXPLLDP.oxpLLDP(device.id().toString().substring("of:".length()),
+                portNumber.intValue(),
+                1111,
+                0xffff);
     }
 
     public boolean containsPort(long portNumber) {
