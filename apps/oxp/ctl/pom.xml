@@ -23,6 +23,10 @@
             <artifactId>onos-oxp-api</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>openflowj</artifactId>
+        </dependency>
     </dependencies>
     <build>
         <plugins>

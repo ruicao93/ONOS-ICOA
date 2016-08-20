@@ -268,10 +268,15 @@ public class LinkDiscovery implements TimerTask {
             context.packetService().emit(bpkt);
         }
         //oxp LLDP
-        OXPLLDP oxplldp = OXPLLDP.oxpLLDP(device.id().toString().substring("of:".length()),
+        OXPLLDP oxplldp = OXPLLDP.oxpLLDP(Long.valueOf(device.id().toString().substring("of:".length())),
                 portNumber.intValue(),
                 1111,
                 0xffff);
+        ethPacket.setSourceMACAddress(context.fingerprint()).setPayload(oxplldp);
+        OutboundPacket oxpLldpPacket = new DefaultOutboundPacket(device.id(),
+                builder().setOutput(portNumber(portNumber)).build(),
+                ByteBuffer.wrap(ethPacket.serialize()));
+        context.packetService().emit(oxpLldpPacket);
     }
 
     public boolean containsPort(long portNumber) {

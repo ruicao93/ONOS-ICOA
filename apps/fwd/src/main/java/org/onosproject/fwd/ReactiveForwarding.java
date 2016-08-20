@@ -23,18 +23,7 @@ import org.apache.felix.scr.annotations.Modified;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
-import org.onlab.packet.Ethernet;
-import org.onlab.packet.ICMP;
-import org.onlab.packet.ICMP6;
-import org.onlab.packet.IPv4;
-import org.onlab.packet.IPv6;
-import org.onlab.packet.Ip4Prefix;
-import org.onlab.packet.Ip6Prefix;
-import org.onlab.packet.MacAddress;
-import org.onlab.packet.TCP;
-import org.onlab.packet.TpPort;
-import org.onlab.packet.UDP;
-import org.onlab.packet.VlanId;
+import org.onlab.packet.*;
 import org.onlab.util.Tools;
 import org.onosproject.cfg.ComponentConfigService;
 import org.onosproject.core.ApplicationId;
@@ -413,6 +402,15 @@ public class ReactiveForwarding {
 
             // Bail if this is deemed to be a control packet.
             if (isControlPacket(ethPkt)) {
+                return;
+            }
+            if (ethPkt.getEtherType() != Ethernet.TYPE_IPV4) {
+                return;
+            }
+            IpAddress target = Ip4Address.valueOf(((IPv4) ethPkt.getPayload()).getDestinationAddress());
+
+            Set<Host> hosts =  hostService.getHostsByIp(target);
+            if (null != hosts && hosts.size() > 0) {
                 return;
             }
 

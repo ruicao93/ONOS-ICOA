@@ -190,4 +190,7 @@ public final class DefaultOpenFlowPacketContext implements OpenFlowPacketContext
         }
     }
 
+    public OFPacketIn getPktin() {
+        return this.pktin;
+    }
 }

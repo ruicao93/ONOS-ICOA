@@ -22,15 +22,15 @@ import org.apache.felix.scr.annotations.Modified;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
-import org.onlab.packet.Ethernet;
-import org.onlab.packet.ICMP6;
-import org.onlab.packet.IPv6;
+import org.onlab.packet.*;
 import org.onlab.util.Tools;
 import org.onosproject.cfg.ComponentConfigService;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
+import org.onosproject.net.Host;
 import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.TrafficSelector;
+import org.onosproject.net.host.HostService;
 import org.onosproject.net.packet.InboundPacket;
 import org.onosproject.net.packet.PacketContext;
 import org.onosproject.net.packet.PacketProcessor;
@@ -40,12 +40,15 @@ import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 
 import java.util.Dictionary;
+import java.util.Set;
 
 import static org.onlab.packet.Ethernet.TYPE_ARP;
 import static org.onlab.packet.Ethernet.TYPE_IPV6;
 import static org.onlab.packet.ICMP6.NEIGHBOR_ADVERTISEMENT;
 import static org.onlab.packet.ICMP6.NEIGHBOR_SOLICITATION;
 import static org.onlab.packet.IPv6.PROTOCOL_ICMP6;
+import static org.onlab.packet.VlanId.vlanId;
+import static org.onosproject.net.HostId.hostId;
 import static org.onosproject.net.packet.PacketPriority.CONTROL;
 import static org.slf4j.LoggerFactory.getLogger;
 
@@ -70,6 +73,9 @@ public class ProxyArp {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected ComponentConfigService cfgService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected HostService hostService;
 
     private ApplicationId appId;
 
@@ -203,28 +209,40 @@ public class ProxyArp {
                 return;
             }
 
-            if (ethPkt.getEtherType() == TYPE_ARP) {
+            if (ethPkt.getEtherType() != TYPE_ARP) {
                 //handle the arp packet.
-                proxyArpService.handlePacket(context);
-            } else if (ipv6NeighborDiscovery && ethPkt.getEtherType() == TYPE_IPV6) {
-                IPv6 ipv6Pkt = (IPv6) ethPkt.getPayload();
-                if (ipv6Pkt.getNextHeader() == IPv6.PROTOCOL_ICMP6) {
-                    ICMP6 icmp6Pkt = (ICMP6) ipv6Pkt.getPayload();
-                    if (icmp6Pkt.getIcmpType() == NEIGHBOR_SOLICITATION ||
-                        icmp6Pkt.getIcmpType() == NEIGHBOR_ADVERTISEMENT) {
-                        // handle ICMPv6 solicitations and advertisements
-                        proxyArpService.handlePacket(context);
-                    }
-                }
-            }
+                return;
 
-            // FIXME why were we listening to IPv4 frames at all?
-            // Do not ARP for multicast packets.  Let mfwd handle them.
-            if (ethPkt.getEtherType() == Ethernet.TYPE_IPV4) {
-                if (ethPkt.getDestinationMAC().isMulticast()) {
-                    return;
-                }
             }
+            ARP arp = (ARP) ethPkt.getPayload();
+
+            IpAddress target = Ip4Address.valueOf(arp.getTargetProtocolAddress());
+            IpAddress sender = Ip4Address.valueOf(arp.getSenderProtocolAddress());
+            Set<Host> hosts =  hostService.getHostsByIp(target);
+            if (null == hosts || hosts.size() == 0) {
+                return;
+            }
+            proxyArpService.handlePacket(context);
+
+//            else if (ipv6NeighborDiscovery && ethPkt.getEtherType() == TYPE_IPV6) {
+//                IPv6 ipv6Pkt = (IPv6) ethPkt.getPayload();
+//                if (ipv6Pkt.getNextHeader() == IPv6.PROTOCOL_ICMP6) {
+//                    ICMP6 icmp6Pkt = (ICMP6) ipv6Pkt.getPayload();
+//                    if (icmp6Pkt.getIcmpType() == NEIGHBOR_SOLICITATION ||
+//                        icmp6Pkt.getIcmpType() == NEIGHBOR_ADVERTISEMENT) {
+//                        // handle ICMPv6 solicitations and advertisements
+//                        proxyArpService.handlePacket(context);
+//                    }
+//                }
+//            }
+//
+//            // FIXME why were we listening to IPv4 frames at all?
+//            // Do not ARP for multicast packets.  Let mfwd handle them.
+//            if (ethPkt.getEtherType() == Ethernet.TYPE_IPV4) {
+//                if (ethPkt.getDestinationMAC().isMulticast()) {
+//                    return;
+//                }
+//            }
         }
     }
 }

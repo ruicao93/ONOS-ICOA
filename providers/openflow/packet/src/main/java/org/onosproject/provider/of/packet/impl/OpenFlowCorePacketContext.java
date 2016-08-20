@@ -96,4 +96,8 @@ public class OpenFlowCorePacketContext extends DefaultPacketContext {
         return OFPort.of((int) port.toLong());
     }
 
+    public OpenFlowPacketContext getOfPktCtx() {
+        return this.ofPktCtx;
+    }
+
 }

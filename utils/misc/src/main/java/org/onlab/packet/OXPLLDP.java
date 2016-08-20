@@ -4,6 +4,7 @@ import org.apache.commons.lang.ArrayUtils;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.text.DecimalFormat;
 
 import static org.onlab.packet.LLDPOrganizationalTLV.OUI_LENGTH;
 import static org.onlab.packet.LLDPOrganizationalTLV.SUBTYPE_LENGTH;
@@ -37,6 +38,7 @@ public class OXPLLDP extends LLDP {
     public static final short OXP_TL_LENGTH = 2;
 
     private  final byte[] ttlValue = new byte[] {0, 0x78};
+    DecimalFormat df = new DecimalFormat("0000000000000000");
 
 
     public OXPLLDP() {
@@ -52,9 +54,9 @@ public class OXPLLDP extends LLDP {
         this.optionalTLVList = lldp.getOptionalTLVList();
     }
 
-    public void setChassisId(String dpid) {
+    public void setChassisId(long dpid) {
         byte[] chassis = ArrayUtils.addAll(new byte[] {OXP_CHASSIS_SUBTYPE},
-                (OXP_CHASSIS_VALUE_PREFIX + dpid).getBytes());
+                (OXP_CHASSIS_VALUE_PREFIX + String.format("%016x", dpid)).getBytes());
         LLDPTLV chassisTLV = new LLDPTLV();
         chassisTLV.setLength((short) (chassis.length));
         chassisTLV.setType(CHASSIS_TLV_TYPE);
@@ -69,11 +71,13 @@ public class OXPLLDP extends LLDP {
         portTlv.setLength((short) (port.length));
         portTlv.setType(PORT_TLV_TYPE);
         portTlv.setValue(port);
+        this.setPortId(portTlv);
     }
+
 
     public void setDomainId(long domainId) {
         byte[] domain = ArrayUtils.addAll(new byte[] {OXP_DOMAINID_SUBTYPE},
-                (OXP_DOMAINID_VALUE_PREFIX + String.valueOf(domainId)).getBytes());
+                (OXP_DOMAINID_VALUE_PREFIX + String.format("%016x", domainId)).getBytes());
         LLDPTLV domainTlv = new LLDPTLV();
         domainTlv.setLength((short) domain.length);
         domainTlv.setType(OXP_DOMAINID_TYPE);
@@ -161,7 +165,7 @@ public class OXPLLDP extends LLDP {
 
     public Integer getVportNum() {
         for (LLDPTLV tlv : this.getOptionalTLVList()) {
-            if (tlv.getType() == OXP_DOMAINID_TYPE) {
+            if (tlv.getType() == OXP_VPORTID_TYPE) {
                 ByteBuffer bb = ByteBuffer.wrap(tlv.getValue());
                 bb.position(1);
                 return bb.getInt();
@@ -180,13 +184,13 @@ public class OXPLLDP extends LLDP {
         return null;
     }
 
-    public static OXPLLDP oxpLLDP(String dpid, int portNum, long domainId, int vportNum) {
+    public static OXPLLDP oxpLLDP(long dpid, int portNum, long domainId, int vportNum) {
         OXPLLDP probe = new OXPLLDP();
         probe.setChassisId(dpid);
         probe.setPortId(portNum);
         probe.setDomainId(domainId);
         probe.setVportId(vportNum);
-        probe.setOXPLLDPName(OXP_ORGANIZATION_NAME);
+        //probe.setOXPLLDPName(OXP_ORGANIZATION_NAME);
         return probe;
     }
 

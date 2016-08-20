@@ -76,7 +76,7 @@ public class OXPVportDescVer10 implements OXPVportDesc {
 
     }
 
-    static class Builder implements OXPVportDesc.Builder {
+    public static class Builder implements OXPVportDesc.Builder {
         private boolean portNoSet;
         private OXPVport portNo;
         private boolean stateSet;

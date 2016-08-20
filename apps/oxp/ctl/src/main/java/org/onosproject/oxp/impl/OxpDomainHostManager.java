@@ -89,11 +89,6 @@ public class OxpDomainHostManager {
                     .setHosts(oxpHosts)
                     .build();
         }
-
-
-        if (!domainController.isConnectToSuper()) {
-            return;
-        }
         log.info("Host update,num:{} .", oxpHosts.size());
         domainController.write(msg);
     }
