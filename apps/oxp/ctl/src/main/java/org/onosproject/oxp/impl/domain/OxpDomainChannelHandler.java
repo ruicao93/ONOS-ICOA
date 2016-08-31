@@ -1,10 +1,11 @@
-package org.onosproject.oxp.impl;
+package org.onosproject.oxp.impl.domain;
 
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.timeout.IdleStateAwareChannelHandler;
 import org.jboss.netty.handler.timeout.IdleStateEvent;
-import org.onosproject.oxp.OxpDomainController;
+import org.onosproject.oxp.domain.OxpDomainController;
 import org.onosproject.oxp.OxpSuper;
+import org.onosproject.oxp.impl.OxpSuper10;
 import org.onosproject.oxp.protocol.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

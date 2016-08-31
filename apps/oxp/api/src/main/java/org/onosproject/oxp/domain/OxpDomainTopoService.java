@@ -1,4 +1,4 @@
-package org.onosproject.oxp;
+package org.onosproject.oxp.domain;
 
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.PortNumber;

@@ -1,4 +1,4 @@
-package org.onosproject.oxp.impl;
+package org.onosproject.oxp.impl.domain;
 
 import org.apache.felix.scr.annotations.*;
 import org.jboss.netty.buffer.ChannelBuffer;
@@ -20,8 +20,8 @@ import org.onosproject.net.link.LinkService;
 import org.onosproject.net.packet.*;
 import org.onosproject.net.topology.PathService;
 import org.onosproject.net.topology.TopologyService;
-import org.onosproject.oxp.OxpDomainController;
-import org.onosproject.oxp.OxpDomainTopoService;
+import org.onosproject.oxp.domain.OxpDomainController;
+import org.onosproject.oxp.domain.OxpDomainTopoService;
 import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.OXPSbpData;

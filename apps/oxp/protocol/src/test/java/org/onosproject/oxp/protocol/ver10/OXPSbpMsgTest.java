@@ -40,6 +40,10 @@ public class OXPSbpMsgTest extends TestBaseVer10 {
 
         OXPSbp sbpMsg = getMsgFactory()
                 .buildSbp()
+                .setSbpCmpType(sbpCmpType)
+                .setFlags(flags)
+                .setDataLength((short) sbpData.getLength())
+                .setSbpXid(echoRequest.getXid())
                 .setSbpData(sbpData)
                 .build();
         sbpMsg.writeTo(buffer);

@@ -1,4 +1,6 @@
-package org.onosproject.oxp;
+package org.onosproject.oxp.domain;
+
+import org.onosproject.oxp.OxpSuper;
 
 /**
  * Created by cr on 16-8-17.

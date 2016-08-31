@@ -2,7 +2,7 @@ package org.onosproject.oxp.impl;
 
 import org.jboss.netty.channel.Channel;
 import org.onlab.packet.IpAddress;
-import org.onosproject.oxp.OxpDomainController;
+import org.onosproject.oxp.domain.OxpDomainController;
 import org.onosproject.oxp.OxpSuper;
 import org.onosproject.oxp.protocol.OXPFactories;
 import org.onosproject.oxp.protocol.OXPFactory;

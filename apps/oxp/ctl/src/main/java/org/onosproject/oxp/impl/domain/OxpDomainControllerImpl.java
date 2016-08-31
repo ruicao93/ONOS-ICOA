@@ -1,10 +1,10 @@
-package org.onosproject.oxp.impl;
+package org.onosproject.oxp.impl.domain;
 
 import org.apache.felix.scr.annotations.*;
 import org.onosproject.core.CoreService;
-import org.onosproject.oxp.OxpDomainController;
+import org.onosproject.oxp.domain.OxpDomainController;
 import org.onosproject.oxp.OxpSuper;
-import org.onosproject.oxp.OxpSuperListener;
+import org.onosproject.oxp.domain.OxpSuperListener;
 import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.DomainId;

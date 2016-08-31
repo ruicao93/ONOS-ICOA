@@ -1,11 +1,11 @@
-package org.onosproject.oxp.impl;
+package org.onosproject.oxp.impl.domain;
 
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
-import org.onosproject.oxp.OxpDomainController;
+import org.onosproject.oxp.domain.OxpDomainController;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.DomainId;
 import org.slf4j.Logger;

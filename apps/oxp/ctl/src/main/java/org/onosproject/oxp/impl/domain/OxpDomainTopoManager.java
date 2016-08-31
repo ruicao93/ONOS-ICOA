@@ -1,4 +1,4 @@
-package org.onosproject.oxp.impl;
+package org.onosproject.oxp.impl.domain;
 
 import org.apache.felix.scr.annotations.*;
 import org.jboss.netty.buffer.ChannelBuffer;
@@ -9,7 +9,6 @@ import org.onlab.packet.OXPLLDP;
 import org.onosproject.cluster.ClusterMetadataService;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
-import org.onosproject.net.Port;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.host.HostService;
 import org.onosproject.net.link.LinkEvent;
@@ -19,6 +18,9 @@ import org.onosproject.net.link.ProbedLinkProvider;
 import org.onosproject.net.packet.*;
 import org.onosproject.net.topology.PathService;
 import org.onosproject.oxp.*;
+import org.onosproject.oxp.domain.OxpDomainController;
+import org.onosproject.oxp.domain.OxpDomainTopoService;
+import org.onosproject.oxp.domain.OxpSuperListener;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.protocol.ver10.OXPVportDescVer10;
 import org.onosproject.oxp.types.OXPInternalLink;
@@ -44,7 +46,7 @@ import static org.slf4j.LoggerFactory.getLogger;
  */
 @Component(immediate = true)
 @Service
-public class OxpDomainTopoManager implements OxpDomainTopoService{
+public class OxpDomainTopoManager implements OxpDomainTopoService {
 
     private final Logger log = getLogger(getClass());
 

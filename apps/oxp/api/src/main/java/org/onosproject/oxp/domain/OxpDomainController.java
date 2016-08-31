@@ -1,5 +1,7 @@
-package org.onosproject.oxp;
+package org.onosproject.oxp.domain;
 
+import org.onosproject.oxp.OxpSuper;
+import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.DomainId;
 
