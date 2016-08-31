@@ -53,7 +53,7 @@ public class OxpDomainControllerImpl implements OxpDomainController {
         //coreService.registerApplication(APP_ID);
         this.setOxpVersion(OXPVersion.OXP_10);
         //-1.DomainId
-        this.setDomainId(DomainId.of(1111));
+        this.setDomainId(DomainId.of(4));
         //0.super ip
         this.setOxpSuperIp("127.0.0.1");
         //1.super port

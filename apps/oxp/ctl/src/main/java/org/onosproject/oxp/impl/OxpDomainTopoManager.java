@@ -9,6 +9,7 @@ import org.onlab.packet.OXPLLDP;
 import org.onosproject.cluster.ClusterMetadataService;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
+import org.onosproject.net.Port;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.host.HostService;
 import org.onosproject.net.link.LinkEvent;
@@ -16,6 +17,7 @@ import org.onosproject.net.link.LinkListener;
 import org.onosproject.net.link.LinkService;
 import org.onosproject.net.link.ProbedLinkProvider;
 import org.onosproject.net.packet.*;
+import org.onosproject.net.topology.PathService;
 import org.onosproject.oxp.*;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.protocol.ver10.OXPVportDescVer10;
@@ -25,10 +27,7 @@ import org.onosproject.oxp.types.OXPVport;
 import org.projectfloodlight.openflow.protocol.*;
 import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
-import org.projectfloodlight.openflow.types.OFBufferId;
-import org.projectfloodlight.openflow.types.OFPort;
-import org.projectfloodlight.openflow.types.TableId;
-import org.projectfloodlight.openflow.types.U64;
+import org.projectfloodlight.openflow.types.*;
 import org.slf4j.Logger;
 
 import java.nio.ByteBuffer;
@@ -68,6 +67,9 @@ public class OxpDomainTopoManager implements OxpDomainTopoService{
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected HostService hostService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected PathService pathService;
 
     private LinkListener linkListener = new InternalLinkListener();
     private OxpSuperMessageListener oxpMsgListener = new InternalOxpSuperMsgListener();
@@ -126,6 +128,28 @@ public class OxpDomainTopoManager implements OxpDomainTopoService{
                     .setVportDesc(vportDesc)
                     .build();
             domainController.write(msg);
+            List<OXPInternalLink> internalLinks = new ArrayList<>();
+            internalLinks.add(OXPInternalLink.of(vport, vport,
+                    PortSpeed.SPEED_10MB.getSpeedBps(), OXPVersion.OXP_10));
+
+            // check intra link
+            for (ConnectPoint connectPoint : vportMap.keySet()) {
+                PortNumber existVport = vportMap.get(connectPoint);
+                if (existVport.toLong() == vport.getPortNumber()) continue;
+                if (pathService.getPaths(edgeConnectPoint.deviceId(), connectPoint.deviceId()).size() > 0) {
+                    OXPVport existOxpVport = OXPVport.ofShort((short) existVport.toLong());
+                    //internalLinks = new ArrayList<>();
+                    internalLinks.add(OXPInternalLink.of(vport, existOxpVport, PortSpeed.SPEED_10MB.getSpeedBps(), OXPVersion.OXP_10));
+                }
+            }
+            if (internalLinks.size() == 0) {
+                return;
+            }
+            OXPTopologyReply topologyReply = oxpFactory
+                    .buildTopologyReply()
+                    .setInternalLink(internalLinks)
+                    .build();
+            domainController.write(topologyReply);
         }
     }
 
@@ -176,6 +200,29 @@ public class OxpDomainTopoManager implements OxpDomainTopoService{
         @Override
         public void handleIncomingMessage(OXPMessage msg) {
            //TODO
+            if (msg.getType() != OXPType.OXPT_TOPO_REQUEST) {
+                return;
+            }
+            List<OXPInternalLink> internalLinks = new ArrayList<>();
+            for (ConnectPoint srcConnectPoint : vportMap.keySet()) {
+                PortNumber srcVportNum = vportMap.get(srcConnectPoint);
+                for (ConnectPoint dstConnectPoint : vportMap.keySet()) {
+                    PortNumber dstVportNum = vportMap.get(dstConnectPoint);
+                    if (pathService.getPaths(srcConnectPoint.deviceId(), dstConnectPoint.deviceId()).size() > 0) {
+                        OXPVport srcOxpVport = OXPVport.ofShort((short) srcVportNum.toLong());
+                        OXPVport dstOxpVport = OXPVport.ofShort((short) dstVportNum.toLong());
+                        internalLinks.add(OXPInternalLink.of(srcOxpVport, dstOxpVport, PortSpeed.SPEED_10MB.getSpeedBps(), OXPVersion.OXP_10));
+                    }
+                }
+            }
+            if (internalLinks.size() == 0) {
+                return;
+            }
+            OXPTopologyReply topologyReply = oxpFactory
+                    .buildTopologyReply()
+                    .setInternalLink(internalLinks)
+                    .build();
+            domainController.write(topologyReply);
         }
 
         @Override
@@ -217,7 +264,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService{
             PortNumber dstPort = context.inPacket().receivedFrom().port();
             DeviceId srcDeviceId = DeviceId.deviceId("of:" + oxplldp.getDpid());
             DeviceId dstDeviceId = context.inPacket().receivedFrom().deviceId();
-            ConnectPoint edgeConnectPoint = new ConnectPoint(srcDeviceId, srcPort);
+            ConnectPoint edgeConnectPoint = new ConnectPoint(dstDeviceId, dstPort);
 
             if (oxplldp.getDomainId() == domainController.getDomainId().getLong()) {
                 context.block();
@@ -227,7 +274,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService{
                 // allocate vport_no and send msg to super
                 addOrUpdateVport(edgeConnectPoint);
                 OXPLLDP replyOxplldp = OXPLLDP.oxpLLDP(Long.valueOf(dstDeviceId.toString().substring("of:".length())),
-                        Long.valueOf(dstPort.toLong()).intValue(),
+                          Long.valueOf(dstPort.toLong()).intValue(),
                         domainController.getDomainId().getLong(),
                         Long.valueOf(getVportNum(edgeConnectPoint).toLong()).intValue());
                 Ethernet ethPacket = new Ethernet();
@@ -267,10 +314,10 @@ public class OxpDomainTopoManager implements OxpDomainTopoService{
                         .build();
                 ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
                 ofPacketInForSuper.writeTo(buffer);
-                byte[] data = new byte[buffer.readableBytes()];
-                buffer.readBytes(data, 0, buffer.readableBytes());
+                //byte[] data = new byte[buffer.readableBytes()];
+                //buffer.readBytes(data, 0, buffer.readableBytes());
                 OXPSbp oxpSbp = oxpFactory.buildSbp()
-                        .setSbpData(OXPSbpData.of(data, domainController.getOxpVersion()))
+                        .setSbpData(OXPSbpData.read(buffer, buffer.readableBytes(), domainController.getOxpVersion()))
                         .build();
                 domainController.write(oxpSbp);
                 context.block();

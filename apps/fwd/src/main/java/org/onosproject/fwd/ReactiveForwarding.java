@@ -410,7 +410,7 @@ public class ReactiveForwarding {
             IpAddress target = Ip4Address.valueOf(((IPv4) ethPkt.getPayload()).getDestinationAddress());
 
             Set<Host> hosts =  hostService.getHostsByIp(target);
-            if (null != hosts && hosts.size() > 0) {
+            if (null == hosts || hosts.size() == 0) {
                 return;
             }
 

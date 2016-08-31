@@ -53,6 +53,7 @@ public class OXPVportDescVer10 implements OXPVportDesc {
         public OXPVportDesc readFrom(ChannelBuffer bb) throws OXPParseError {
             OXPVport portNo = OXPVport.ofShort(bb.readShort());
             Set<OXPVportState> state = OXPVportStateSerializerVer10.readFrom(bb);
+            bb.skipBytes(2);
             return new OXPVportDescVer10(portNo, state);
         }
     }
@@ -68,6 +69,7 @@ public class OXPVportDescVer10 implements OXPVportDesc {
         public void write(ChannelBuffer bb, OXPVportDescVer10 message) {
             bb.writeShort(message.portNo.getPortNumber());
             OXPVportStateSerializerVer10.writeTo(bb, message.state);
+            bb.writeZero(2);
         }
     }
 

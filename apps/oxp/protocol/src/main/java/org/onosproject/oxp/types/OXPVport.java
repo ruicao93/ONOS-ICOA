@@ -79,15 +79,15 @@ public class OXPVport implements OXPValueType<OXPVport> {
 
     @Override
     public void putTo(PrimitiveSink sink) {
-        sink.putShort(portNumber);
+        sink.putByte((byte) portNumber);
     }
 
     public void writeTo(ChannelBuffer bb) {
-        bb.writeShort(portNumber);
+        bb.writeByte(portNumber);
     }
 
     public static OXPVport readFrom(ChannelBuffer bb) {
-        return OXPVport.ofShort(bb.readShort());
+        return OXPVport.ofShort(bb.readByte());
     }
 
     static class NamedVport extends OXPVport {

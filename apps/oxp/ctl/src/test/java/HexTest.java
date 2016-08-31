@@ -6,6 +6,6 @@ import org.junit.Test;
 public class HexTest {
     @Test
     public  void main() {
-        System.out.println(String.format("%05x", 2222));
+        System.out.println(String.format("%06x", 10000000));
     }
 }

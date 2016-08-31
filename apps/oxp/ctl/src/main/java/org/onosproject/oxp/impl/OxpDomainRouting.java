@@ -4,12 +4,18 @@ import org.apache.felix.scr.annotations.*;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.onlab.packet.*;
+import org.onosproject.core.ApplicationId;
+import org.onosproject.core.CoreService;
 import org.onosproject.net.*;
 import org.onosproject.net.edge.EdgePortService;
+import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
+import org.onosproject.net.flow.TrafficSelector;
 import org.onosproject.net.flow.TrafficTreatment;
+import org.onosproject.net.flowobjective.DefaultForwardingObjective;
+import org.onosproject.net.flowobjective.FlowObjectiveService;
+import org.onosproject.net.flowobjective.ForwardingObjective;
 import org.onosproject.net.host.HostService;
-import org.onosproject.net.intent.PointToPointIntent;
 import org.onosproject.net.link.LinkService;
 import org.onosproject.net.packet.*;
 import org.onosproject.net.topology.PathService;
@@ -24,8 +30,8 @@ import org.projectfloodlight.openflow.protocol.action.OFAction;
 import org.projectfloodlight.openflow.protocol.action.OFActionOutput;
 import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
-import org.projectfloodlight.openflow.types.*;
 import org.projectfloodlight.openflow.types.EthType;
+import org.projectfloodlight.openflow.types.*;
 import org.slf4j.Logger;
 
 import java.nio.ByteBuffer;
@@ -71,11 +77,20 @@ public class OxpDomainRouting {
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected PathService pathService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected CoreService coreService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected FlowObjectiveService flowObjectiveService;
+
+    private ApplicationId appId;
+
     private PacketProcessor packetProcessor = new ReactivePacketProcessor();
     private OxpSuperMessageListener oxpSbpMsgListener = new InternalOxpSuperMsgListener();
 
     @Activate
     public void activate() {
+        appId = coreService.getAppId("org.onosproject.oxp");
         oxpVersion = domainController.getOxpVersion();
         oxpFactory = OXPFactories.getFactory(oxpVersion);
         ofVersion = OFVersion.OF_13;
@@ -94,7 +109,6 @@ public class OxpDomainRouting {
     }
 
     private void translatePacketOutMessage(OFPacketOut pktout) throws DeserializationException {
-        //TODO
         Ethernet ethpkt = Ethernet.deserializer().deserialize(pktout.getData(), 0, pktout.getData().length);
         OFPort outPort  = null;
         for (OFAction action :pktout.getActions()) {
@@ -126,7 +140,6 @@ public class OxpDomainRouting {
     }
 
     private void translateFlowModeMessage(OFFlowMod flowMod) {
-        //TODO
         //Ethernet ethpkt = Ethernet.deserializer().deserialize(flowMod.getData(), 0, pktout.getData().length);
         Match match = flowMod.getMatch();
         IPv4Address srcIp = (IPv4Address) match.get(MatchField.IPV4_SRC);
@@ -157,14 +170,57 @@ public class OxpDomainRouting {
         if (srcConnectPoint == null || dstConnectPoint == null) {
             return;
         }
+        // check if src and dst are on same device
+        if (srcConnectPoint.deviceId().equals(dstConnectPoint.deviceId())) {
+            installForwardRule(srcConnectPoint.deviceId(), ethType,
+                    srcIp, dstIp,
+                    PortNumber.portNumber(inPort.getPortNumber()), PortNumber.portNumber(outPort.getPortNumber()));
+            return;
+        }
         // install path between connectpoints
         Set<Path> paths = pathService.getPaths(srcConnectPoint.deviceId(), dstConnectPoint.deviceId());
         if (paths == null || paths.size() == 0) return;
         Path path = (Path) paths.toArray()[0];
-        // TODO install path
+        List<Link> links = path.links();
+        Link lastLink = null;
+        for (Link link : links) {
+            DeviceId srcDeviceId = link.src().deviceId();
+            installForwardRule(srcDeviceId, ethType,
+                    srcIp, dstIp,
+                    link.src().port(), link.dst().port());
+            lastLink = link;
+
+        }
+        installForwardRule(lastLink.src().deviceId(), ethType,
+                srcIp, dstIp,
+                lastLink.src().port(), lastLink.dst().port());
 
     }
 
+    private void installForwardRule(DeviceId deviceId, EthType ethType,
+                               IPv4Address srcIp, IPv4Address dstIp,
+                                    PortNumber inPort,PortNumber outPort) {
+        TrafficSelector.Builder selectorBuilder = DefaultTrafficSelector.builder();
+        selectorBuilder.matchInPort(inPort)
+                .matchEthType((short) ethType.getValue())
+                .matchIPSrc(Ip4Prefix.valueOf(srcIp.getInt(),
+                        Ip4Prefix.MAX_MASK_LENGTH))
+                .matchIPDst(Ip4Prefix.valueOf(srcIp.getInt(),
+                        Ip4Prefix.MAX_MASK_LENGTH));
+        TrafficTreatment treatment = DefaultTrafficTreatment.builder()
+                .setOutput(outPort)
+                .build();
+        ForwardingObjective forwardingObjective = DefaultForwardingObjective.builder()
+                .withSelector(selectorBuilder.build())
+                .withTreatment(treatment)
+                .withPriority(10)
+                .withFlag(ForwardingObjective.Flag.VERSATILE)
+                .fromApp(appId)
+                .makeTemporary(15)
+                .add();
+
+        flowObjectiveService.forward(deviceId, forwardingObjective);
+    }
     private Host getFirstHostByIp(IpAddress ip) {
         Set<Host> dstHosts = hostService.getHostsByIp(ip);
         if (null != dstHosts && dstHosts.size() > 0) {
@@ -218,11 +274,9 @@ public class OxpDomainRouting {
             if (ethPkt == null || ethPkt.getEtherType() == Ethernet.TYPE_LLDP) {
                 return;
             }
-            PortNumber srcPort = null;
             PortNumber dstPort = context.inPacket().receivedFrom().port();
-            DeviceId srcDeviceId = null;
             DeviceId dstDeviceId = context.inPacket().receivedFrom().deviceId();
-            ConnectPoint connectPoint = new ConnectPoint(srcDeviceId, srcPort);
+            ConnectPoint connectPoint = new ConnectPoint(dstDeviceId, dstPort);
 
             IpAddress target;
             HostId id = HostId.hostId(ethPkt.getDestinationMAC());
@@ -259,6 +313,7 @@ public class OxpDomainRouting {
                     .setSbpData(OXPSbpData.of(data, domainController.getOxpVersion()))
                     .build();
             domainController.write(oxpSbp);
+            flood(ethPkt);
             context.block();
         }
     }
@@ -300,6 +355,5 @@ public class OxpDomainRouting {
 
         }
     }
-
 
 }
