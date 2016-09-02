@@ -9,7 +9,7 @@ import java.util.List;
  *
  * Created by cr on 16-8-14.
  */
-public interface OxpSuperMessageListener {
+public interface OxpMessageListener {
     void handleIncomingMessage(OXPMessage msg);
 
     void handleOutGoingMessage(List<OXPMessage> msgs);

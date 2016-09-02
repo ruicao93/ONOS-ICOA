@@ -74,7 +74,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
     protected PathService pathService;
 
     private LinkListener linkListener = new InternalLinkListener();
-    private OxpSuperMessageListener oxpMsgListener = new InternalOxpSuperMsgListener();
+    private OxpMessageListener oxpMsgListener = new InternalOxpMsgListener();
     private OxpSuperListener oxpSuperListener = new InternalOxpSuperListener();
     private PacketProcessor oxpLlapPacketProcessor = new InternalPacketProcessor();
 
@@ -198,7 +198,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         }
     }
 
-    private class InternalOxpSuperMsgListener implements OxpSuperMessageListener {
+    private class InternalOxpMsgListener implements OxpMessageListener {
         @Override
         public void handleIncomingMessage(OXPMessage msg) {
            //TODO

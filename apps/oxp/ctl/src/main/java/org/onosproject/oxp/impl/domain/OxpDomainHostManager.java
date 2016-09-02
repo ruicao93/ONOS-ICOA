@@ -9,7 +9,7 @@ import org.onosproject.net.host.HostService;
 import org.onosproject.oxp.domain.OxpDomainController;
 import org.onosproject.oxp.OxpSuper;
 import org.onosproject.oxp.domain.OxpSuperListener;
-import org.onosproject.oxp.OxpSuperMessageListener;
+import org.onosproject.oxp.OxpMessageListener;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.IPv4Address;
 import org.onosproject.oxp.types.MacAddress;
@@ -39,7 +39,7 @@ public class OxpDomainHostManager {
     protected OxpDomainController domainController;
 
     private HostListener hostListener = new InternalHostListener();
-    private OxpSuperMessageListener oxpMsgListener = new InternalOxpSuperMsgListener();
+    private OxpMessageListener oxpMsgListener = new InternalOxpMsgListener();
     private OxpSuperListener oxpSuperListener = new InternalOxpSuperListener();
 
     @Activate
@@ -132,7 +132,7 @@ public class OxpDomainHostManager {
         }
     }
 
-    private class InternalOxpSuperMsgListener implements OxpSuperMessageListener {
+    private class InternalOxpMsgListener implements OxpMessageListener {
         @Override
         public void handleIncomingMessage(OXPMessage msg) {
             if (msg.getType() != OXPType.OXPT_HOST_REQUEST) {

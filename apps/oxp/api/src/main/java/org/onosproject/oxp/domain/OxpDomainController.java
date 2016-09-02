@@ -1,7 +1,7 @@
 package org.onosproject.oxp.domain;
 
 import org.onosproject.oxp.OxpSuper;
-import org.onosproject.oxp.OxpSuperMessageListener;
+import org.onosproject.oxp.OxpMessageListener;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.DomainId;
 
@@ -21,6 +21,9 @@ public interface OxpDomainController {
 
     void processDownstreamMessage(List<OXPMessage> msgs);
 
+    void setUpConnectionToSuper();
+    void disconnectFromSuper();
+
     /**
      * called by OxpSuper
      * @param oxpSuper
@@ -28,11 +31,17 @@ public interface OxpDomainController {
      */
     boolean connectToSuper(OxpSuper oxpSuper);
 
+    /**
+     * called by OxpSuper
+     * @return
+     */
+    boolean loseConnectionFromSuper();
+
     boolean isConnectToSuper();
 
-    void addMessageListener(OxpSuperMessageListener listener);
+    void addMessageListener(OxpMessageListener listener);
 
-    void removeMessageListener(OxpSuperMessageListener listener);
+    void removeMessageListener(OxpMessageListener listener);
 
     void addOxpSuperListener(OxpSuperListener listener);
 

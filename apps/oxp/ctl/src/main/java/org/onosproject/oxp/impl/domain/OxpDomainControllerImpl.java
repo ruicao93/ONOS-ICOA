@@ -5,7 +5,7 @@ import org.onosproject.core.CoreService;
 import org.onosproject.oxp.domain.OxpDomainController;
 import org.onosproject.oxp.OxpSuper;
 import org.onosproject.oxp.domain.OxpSuperListener;
-import org.onosproject.oxp.OxpSuperMessageListener;
+import org.onosproject.oxp.OxpMessageListener;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.DomainId;
 import org.slf4j.Logger;
@@ -41,7 +41,7 @@ public class OxpDomainControllerImpl implements OxpDomainController {
 
     private DomainConnector domainConnector = new DomainConnector(this);
 
-    private Set<OxpSuperMessageListener> oxpSuperMessageListeners = new CopyOnWriteArraySet<>();
+    private Set<OxpMessageListener> oxpMessageListeners = new CopyOnWriteArraySet<>();
 
     private Set<OxpSuperListener> oxpSuperListeners = new CopyOnWriteArraySet<>();
 
@@ -50,12 +50,12 @@ public class OxpDomainControllerImpl implements OxpDomainController {
 
     @Activate
     public void activate() {
-        //coreService.registerApplication(APP_ID);
+        //-2. set OXP Version
         this.setOxpVersion(OXPVersion.OXP_10);
         //-1.DomainId
         this.setDomainId(DomainId.of(4));
         //0.super ip
-        this.setOxpSuperIp("127.0.0.1");
+        this.setOxpSuperIp("192.168.48.57");
         //1.super port
         this.setOxpSuperPort(6688);
         //2.sbp type
@@ -80,31 +80,41 @@ public class OxpDomainControllerImpl implements OxpDomainController {
         this.setPeriod(5);
         //7.miss send length
         this.setMissSendLen(128);
-        domainConnector.start();
+        setUpConnectionToSuper();
         log.info("Started");
     }
 
     @Deactivate
     public void deactivate() {
         oxpSuper = null;
-        oxpSuperMessageListeners.clear();
+        oxpMessageListeners.clear();
         oxpSuperListeners.clear();
-        domainConnector.stop();
+        disconnectFromSuper();
         log.info("Stoped");
     }
 
     @Override
     public void processMessage(OXPMessage msg) {
-        for (OxpSuperMessageListener listener : oxpSuperMessageListeners) {
+        for (OxpMessageListener listener : oxpMessageListeners) {
             listener.handleIncomingMessage(msg);
         }
     }
 
     @Override
     public void processDownstreamMessage(List<OXPMessage> msgs) {
-        for (OxpSuperMessageListener listener : oxpSuperMessageListeners) {
+        for (OxpMessageListener listener : oxpMessageListeners) {
             listener.handleOutGoingMessage(msgs);
         }
+    }
+
+    @Override
+    public void setUpConnectionToSuper() {
+        domainConnector.start();
+    }
+
+    @Override
+    public void disconnectFromSuper() {
+        domainConnector.stop();
     }
 
     @Override
@@ -117,13 +127,22 @@ public class OxpDomainControllerImpl implements OxpDomainController {
     }
 
     @Override
-    public void addMessageListener(OxpSuperMessageListener listener) {
-        oxpSuperMessageListeners.add(listener);
+    public boolean loseConnectionFromSuper() {
+        this.oxpSuper = null;
+        for (OxpSuperListener listener : oxpSuperListeners) {
+            listener.disconnectFromSuper(oxpSuper);
+        }
+        return true;
     }
 
     @Override
-    public void removeMessageListener(OxpSuperMessageListener listener) {
-        oxpSuperMessageListeners.remove(listener);
+    public void addMessageListener(OxpMessageListener listener) {
+        oxpMessageListeners.add(listener);
+    }
+
+    @Override
+    public void removeMessageListener(OxpMessageListener listener) {
+        oxpMessageListeners.remove(listener);
     }
 
     @Override
