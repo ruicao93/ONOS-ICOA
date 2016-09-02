@@ -42,6 +42,7 @@ public class OxpSuperControllerImpl implements OxpSuperController {
 
     @Activate
     public void activate() {
+        oxpVersion = OXPVersion.OXP_10;
         domainMap = new HashMap<>();
         connector.start();
         log.info("OxpSuperController started...");
@@ -150,4 +151,5 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     public OXPDomain getOxpDomain(DeviceId deviceId) {
         return domainMap.get(deviceId);
     }
+
 }
