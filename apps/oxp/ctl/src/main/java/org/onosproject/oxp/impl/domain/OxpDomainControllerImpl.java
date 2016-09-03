@@ -7,7 +7,7 @@ import org.onosproject.net.topology.OxpDomainConfig;
 import org.onosproject.oxp.domain.OxpDomainController;
 import org.onosproject.oxp.OxpSuper;
 import org.onosproject.oxp.domain.OxpSuperListener;
-import org.onosproject.oxp.OxpMessageListener;
+import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.protocol.ver10.OXPCapabilitiesSerializerVer10;
 import org.onosproject.oxp.protocol.ver10.OXPConfigFlagsSerializerVer10;
@@ -16,7 +16,6 @@ import org.onosproject.oxp.types.DomainId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -50,7 +49,7 @@ public class OxpDomainControllerImpl implements OxpDomainController {
 
     private DomainConnector domainConnector = new DomainConnector(this);
 
-    private Set<OxpMessageListener> oxpMessageListeners = new CopyOnWriteArraySet<>();
+    private Set<OxpSuperMessageListener> oxpSuperMessageListeners = new CopyOnWriteArraySet<>();
 
     private Set<OxpSuperListener> oxpSuperListeners = new CopyOnWriteArraySet<>();
 
@@ -82,7 +81,7 @@ public class OxpDomainControllerImpl implements OxpDomainController {
     @Deactivate
     public void deactivate() {
         oxpSuper = null;
-        oxpMessageListeners.clear();
+        oxpSuperMessageListeners.clear();
         oxpSuperListeners.clear();
         disconnectFromSuper();
         log.info("Stoped");
@@ -105,8 +104,6 @@ public class OxpDomainControllerImpl implements OxpDomainController {
         //4.capabilities
         this.setCapabilities(OXPCapabilitiesSerializerVer10.ofWireValue(domainConfig.getCapabilities()));
         //5.flags
-        Set<OXPConfigFlags> flags = new HashSet<>();
-        flags.add(OXPConfigFlags.CAP_BW);
         this.setFlags(OXPConfigFlagsSerializerVer10.ofWireValue((byte) domainConfig.getFlags()));
         //6.period
         this.setPeriod(domainConfig.getPeriod());
@@ -115,14 +112,14 @@ public class OxpDomainControllerImpl implements OxpDomainController {
     }
     @Override
     public void processMessage(OXPMessage msg) {
-        for (OxpMessageListener listener : oxpMessageListeners) {
+        for (OxpSuperMessageListener listener : oxpSuperMessageListeners) {
             listener.handleIncomingMessage(msg);
         }
     }
 
     @Override
     public void processDownstreamMessage(List<OXPMessage> msgs) {
-        for (OxpMessageListener listener : oxpMessageListeners) {
+        for (OxpSuperMessageListener listener : oxpSuperMessageListeners) {
             listener.handleOutGoingMessage(msgs);
         }
     }
@@ -156,13 +153,13 @@ public class OxpDomainControllerImpl implements OxpDomainController {
     }
 
     @Override
-    public void addMessageListener(OxpMessageListener listener) {
-        oxpMessageListeners.add(listener);
+    public void addMessageListener(OxpSuperMessageListener listener) {
+        oxpSuperMessageListeners.add(listener);
     }
 
     @Override
-    public void removeMessageListener(OxpMessageListener listener) {
-        oxpMessageListeners.remove(listener);
+    public void removeMessageListener(OxpSuperMessageListener listener) {
+        oxpSuperMessageListeners.remove(listener);
     }
 
     @Override

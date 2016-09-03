@@ -22,7 +22,7 @@ import org.onosproject.net.topology.PathService;
 import org.onosproject.net.topology.TopologyService;
 import org.onosproject.oxp.domain.OxpDomainController;
 import org.onosproject.oxp.domain.OxpDomainTopoService;
-import org.onosproject.oxp.OxpMessageListener;
+import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.OXPSbpData;
 import org.projectfloodlight.openflow.protocol.*;
@@ -86,7 +86,7 @@ public class OxpDomainRouting {
     private ApplicationId appId;
 
     private PacketProcessor packetProcessor = new ReactivePacketProcessor();
-    private OxpMessageListener oxpSbpMsgListener = new InternalOxpMsgListener();
+    private OxpSuperMessageListener oxpSbpMsgListener = new InternalOxpSuperMsgListener();
 
     @Activate
     public void activate() {
@@ -318,7 +318,7 @@ public class OxpDomainRouting {
         }
     }
 
-    private class InternalOxpMsgListener implements OxpMessageListener {
+    private class InternalOxpSuperMsgListener implements OxpSuperMessageListener {
         @Override
         public void handleIncomingMessage(OXPMessage msg) {
             // translate sbp response

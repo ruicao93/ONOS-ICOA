@@ -1,7 +1,7 @@
 package org.onosproject.oxp.domain;
 
 import org.onosproject.oxp.OxpSuper;
-import org.onosproject.oxp.OxpMessageListener;
+import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.DomainId;
 
@@ -39,9 +39,9 @@ public interface OxpDomainController {
 
     boolean isConnectToSuper();
 
-    void addMessageListener(OxpMessageListener listener);
+    void addMessageListener(OxpSuperMessageListener listener);
 
-    void removeMessageListener(OxpMessageListener listener);
+    void removeMessageListener(OxpSuperMessageListener listener);
 
     void addOxpSuperListener(OxpSuperListener listener);
 

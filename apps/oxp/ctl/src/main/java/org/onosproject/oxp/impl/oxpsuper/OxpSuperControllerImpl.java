@@ -4,10 +4,10 @@ import org.apache.felix.scr.annotations.*;
 import org.onosproject.core.CoreService;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.config.NetworkConfigRegistry;
-import org.onosproject.net.topology.OxpDomainConfig;
 import org.onosproject.net.topology.OxpSuperConfig;
 import org.onosproject.oxp.OXPDomain;
-import org.onosproject.oxp.OxpMessageListener;
+import org.onosproject.oxp.OxpDomainMessageListener;
+import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.oxpsuper.OxpDomainListener;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.protocol.OXPMessage;
@@ -39,7 +39,7 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     private Map<DeviceId, OXPDomain> domainMap;
 
     private SuperConnector connector = new SuperConnector(this);
-    private Set<OxpMessageListener> oxpMessageListeners = new CopyOnWriteArraySet<>();
+    private Set<OxpDomainMessageListener> messageListeners = new CopyOnWriteArraySet<>();
     private Set<OxpDomainListener> oxpDomainListeners = new CopyOnWriteArraySet<>();
 
 
@@ -114,13 +114,13 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     }
 
     @Override
-    public void addMessageListener(OxpMessageListener listener) {
-        this.oxpMessageListeners.add(listener);
+    public void addMessageListener(OxpDomainMessageListener listener) {
+        this.messageListeners.add(listener);
     }
 
     @Override
-    public void removeMessageListener(OxpMessageListener listener) {
-        this.oxpMessageListeners.remove(listener);
+    public void removeMessageListener(OxpDomainMessageListener listener) {
+        this.messageListeners.remove(listener);
     }
 
     @Override
@@ -162,16 +162,16 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     }
 
     @Override
-    public void processDownstreamMessage(List<OXPMessage> msgs) {
-        for (OxpMessageListener msgListener : oxpMessageListeners) {
-            msgListener.handleOutGoingMessage(msgs);
+    public void processDownstreamMessage(DeviceId deviceId,List<OXPMessage> msgs) {
+        for (OxpDomainMessageListener msgListener : messageListeners) {
+            msgListener.handleOutGoingMessage(deviceId, msgs);
         }
     }
 
     @Override
-    public void processMessage(OXPMessage msg) {
-        for (OxpMessageListener listener : oxpMessageListeners) {
-            listener.handleIncomingMessage(msg);
+    public void processMessage(DeviceId deviceId,OXPMessage msg) {
+        for (OxpDomainMessageListener listener : messageListeners) {
+            listener.handleIncomingMessage(deviceId, msg);
         }
     }
 

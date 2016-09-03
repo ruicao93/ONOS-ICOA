@@ -74,7 +74,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
     protected PathService pathService;
 
     private LinkListener linkListener = new InternalLinkListener();
-    private OxpMessageListener oxpMsgListener = new InternalOxpMsgListener();
+    private OxpSuperMessageListener oxpMsgListener = new InternalOxpSuperMsgListener();
     private OxpSuperListener oxpSuperListener = new InternalOxpSuperListener();
     private PacketProcessor oxpLlapPacketProcessor = new InternalPacketProcessor();
 
@@ -198,7 +198,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         }
     }
 
-    private class InternalOxpMsgListener implements OxpMessageListener {
+    private class InternalOxpSuperMsgListener implements OxpSuperMessageListener {
         @Override
         public void handleIncomingMessage(OXPMessage msg) {
            //TODO
@@ -319,6 +319,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                 //byte[] data = new byte[buffer.readableBytes()];
                 //buffer.readBytes(data, 0, buffer.readableBytes());
                 OXPSbp oxpSbp = oxpFactory.buildSbp()
+                        .setSbpCmpType(OXPSbpCmpType.NORMAL)
                         .setSbpData(OXPSbpData.read(buffer, buffer.readableBytes(), domainController.getOxpVersion()))
                         .build();
                 domainController.write(oxpSbp);
