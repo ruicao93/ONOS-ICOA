@@ -44,6 +44,15 @@ public class OxpDomainHostManager {
 
     @Activate
     public void activate() {
+        int tryTimes = 10;
+        int i = 0;
+        while (oxpVersion == null && i < tryTimes) {
+            oxpVersion = domainController.getOxpVersion();
+            i++;
+        }
+        if (null == oxpVersion) {
+            return;
+        }
         oxpVersion = domainController.getOxpVersion();
         oxpFactory = OXPFactories.getFactory(oxpVersion);
         domainController.addMessageListener(oxpMsgListener);

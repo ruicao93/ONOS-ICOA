@@ -90,6 +90,15 @@ public class OxpDomainRouting {
 
     @Activate
     public void activate() {
+        int tryTimes = 10;
+        int i = 0;
+        while (oxpVersion == null && i < tryTimes) {
+            oxpVersion = domainController.getOxpVersion();
+            i++;
+        }
+        if (null == oxpVersion) {
+            return;
+        }
         appId = coreService.getAppId("org.onosproject.oxp");
         oxpVersion = domainController.getOxpVersion();
         oxpFactory = OXPFactories.getFactory(oxpVersion);

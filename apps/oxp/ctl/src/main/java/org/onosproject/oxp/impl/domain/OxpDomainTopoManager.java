@@ -85,7 +85,15 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
 
     @Activate
     public void activate() {
-        oxpVersion = domainController.getOxpVersion();
+        int tryTimes = 10;
+        int i = 0;
+        while (oxpVersion == null && i < tryTimes) {
+            oxpVersion = domainController.getOxpVersion();
+            i++;
+        }
+        if (null == oxpVersion) {
+            return;
+        }
         oxpFactory = OXPFactories.getFactory(oxpVersion);
         ofVersion = OFVersion.OF_13;
         ofFactory = OFFactories.getFactory(ofVersion);
