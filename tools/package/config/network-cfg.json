@@ -1,0 +1,22 @@
+{
+    "apps":{
+        "org.onosproject.oxpcfg":{
+            "domain":{
+                "id":"1",
+                "flags":1,
+                "period":10,
+                "oxpVersion":1,
+                "missSendLength":128,
+                "capabilities":255,
+                "sbpType":1,
+                "sbpVersion":4,
+                "superIp":"192.168.48.57",
+                "superPort":6688
+            },
+            "super":{
+                "oxpVersion":1,
+                "superPort":6688
+            }
+        }
+    }
+}
