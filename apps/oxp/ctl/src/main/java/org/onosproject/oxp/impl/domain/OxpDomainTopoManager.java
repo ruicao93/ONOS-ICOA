@@ -329,8 +329,11 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                 ofPacketInForSuper.writeTo(buffer);
                 //byte[] data = new byte[buffer.readableBytes()];
                 //buffer.readBytes(data, 0, buffer.readableBytes());
+                Set<OXPSbpFlags> sbpFlagses = new HashSet<>();
+                sbpFlagses.add(OXPSbpFlags.DATA_EXIST);
                 OXPSbp oxpSbp = oxpFactory.buildSbp()
                         .setSbpCmpType(OXPSbpCmpType.NORMAL)
+                        .setFlags(sbpFlagses)
                         .setSbpData(OXPSbpData.read(buffer, buffer.readableBytes(), domainController.getOxpVersion()))
                         .build();
                 domainController.write(oxpSbp);
