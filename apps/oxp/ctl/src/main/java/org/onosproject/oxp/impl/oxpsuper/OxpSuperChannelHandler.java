@@ -1,10 +1,8 @@
 package org.onosproject.oxp.impl.oxpsuper;
 
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelStateEvent;
-import org.jboss.netty.channel.MessageEvent;
+import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.timeout.IdleStateAwareChannelHandler;
+import org.jboss.netty.handler.timeout.IdleStateEvent;
 import org.onosproject.net.DeviceId;
 import org.onosproject.oxp.OXPDomain;
 import org.onosproject.oxp.OxpSuper;
@@ -305,6 +303,28 @@ public class OxpSuperChannelHandler extends IdleStateAwareChannelHandler {
          */
         //sendHandshakeHelloMessage();
         setState(ChannelState.WAIT_HELLO);
+    }
+
+    @Override
+    public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
+        log.info("Oxp domain controller disconnected from here.");
+        superController.removeDomain(oxpDomain.getDeviceId());
+    }
+
+    /**
+     * TODO: Need change method to send echo periodically
+     * @param ctx
+     * @param e
+     * @throws Exception
+     */
+    @Override
+    public void channelIdle(ChannelHandlerContext ctx, IdleStateEvent e) throws Exception {
+        super.channelIdle(ctx, e);
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
+        log.info(e.toString());
     }
 
     private void dispatchMessage(OXPMessage m) {
