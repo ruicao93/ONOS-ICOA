@@ -8,6 +8,7 @@ import org.jboss.netty.handler.timeout.IdleStateAwareChannelHandler;
 import org.onosproject.net.DeviceId;
 import org.onosproject.oxp.OXPDomain;
 import org.onosproject.oxp.OxpSuper;
+import org.onosproject.oxp.impl.OxpDomain10;
 import org.onosproject.oxp.impl.OxpSuper10;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.protocol.*;
@@ -56,7 +57,7 @@ public class OxpSuperChannelHandler extends IdleStateAwareChannelHandler {
                 if (m.getVersion().getWireVersion() == h.getOxpVersion().getWireVersion()) {
                     h.oxpVersion = h.getOxpVersion();
                     h.oxpFactory = OXPFactories.getFactory(h.oxpVersion);
-                    //TODO new domain instance
+                    h.oxpDomain = new OxpDomain10(h.superController);
                     h.oxpDomain.setOxpVersion(h.oxpVersion);
                     h.sendHandshakeHelloMsg();
                 } else {
@@ -111,6 +112,10 @@ public class OxpSuperChannelHandler extends IdleStateAwareChannelHandler {
 
             @Override
             void processOXPHostRely(OxpSuperChannelHandler h, OXPHostReply m) throws IOException {
+                h.dispatchMessage(m);
+            }
+
+            void processOXPHostUpdate(OxpSuperChannelHandler h, OXPHostUpdate m) throws IOException {
                 h.dispatchMessage(m);
             }
 

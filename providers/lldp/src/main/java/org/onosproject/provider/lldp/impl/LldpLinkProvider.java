@@ -46,10 +46,8 @@ import org.onosproject.net.Device;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.LinkKey;
 import org.onosproject.net.Port;
-import org.onosproject.net.config.ConfigFactory;
-import org.onosproject.net.config.NetworkConfigEvent;
-import org.onosproject.net.config.NetworkConfigListener;
-import org.onosproject.net.config.NetworkConfigRegistry;
+import org.onosproject.net.config.*;
+import org.onosproject.net.config.basics.SubjectFactories;
 import org.onosproject.net.device.DeviceEvent;
 import org.onosproject.net.device.DeviceEvent.Type;
 import org.onosproject.net.device.DeviceListener;
@@ -67,6 +65,8 @@ import org.onosproject.net.packet.PacketProcessor;
 import org.onosproject.net.packet.PacketService;
 import org.onosproject.net.provider.AbstractProvider;
 import org.onosproject.net.provider.ProviderId;
+import org.onosproject.net.topology.OxpDomainConfig;
+import org.onosproject.net.topology.OxpSuperConfig;
 import org.onosproject.provider.lldpcommon.LinkDiscovery;
 import org.onosproject.provider.lldpcommon.LinkDiscoveryContext;
 import org.osgi.service.component.ComponentContext;
@@ -139,6 +139,12 @@ public class LldpLinkProvider extends AbstractProvider implements ProbedLinkProv
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected ClusterMetadataService clusterMetadataService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected NetworkConfigService networkConfigService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected NetworkConfigRegistry networkConfigRegistry;
+
     private LinkProviderService providerService;
 
     private ScheduledExecutorService executor;
@@ -195,7 +201,25 @@ public class LldpLinkProvider extends AbstractProvider implements ProbedLinkProv
     public static final String CONFIG_KEY = "suppression";
     public static final String FEATURE_NAME = "linkDiscovery";
 
+    private String domainId;
+
     private final Set<ConfigFactory<?, ?>> factories = ImmutableSet.of(
+            new ConfigFactory<ApplicationId, OxpDomainConfig>(
+                    SubjectFactories.APP_SUBJECT_FACTORY,
+                    OxpDomainConfig.class, "domain") {
+                @Override
+                public OxpDomainConfig createConfig() {
+                    return new OxpDomainConfig();
+                }
+            },
+            new ConfigFactory<ApplicationId, OxpSuperConfig>(
+                    SubjectFactories.APP_SUBJECT_FACTORY,
+                    OxpSuperConfig.class, "super") {
+                @Override
+                public OxpSuperConfig createConfig() {
+                    return new OxpSuperConfig();
+                }
+            },
             new ConfigFactory<ApplicationId, SuppressionConfig>(APP_SUBJECT_FACTORY,
                     SuppressionConfig.class,
                     CONFIG_KEY) {
@@ -218,6 +242,7 @@ public class LldpLinkProvider extends AbstractProvider implements ProbedLinkProv
                     return new LinkDiscoveryFromPort();
                 }
             }
+
     );
 
     private final InternalConfigListener cfgListener = new InternalConfigListener();
@@ -258,6 +283,23 @@ public class LldpLinkProvider extends AbstractProvider implements ProbedLinkProv
         cfgListener.reconfigureSuppressionRules(cfg);
 
         modified(context);
+
+        OxpDomainConfig oxpDomainConfig = null;
+        int tryTimes = 10;
+        int i = 0;
+        while (oxpDomainConfig == null && i < tryTimes) {
+            oxpDomainConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"),OxpDomainConfig.class);
+            i++;
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        if (null != oxpDomainConfig) {
+            domainId = oxpDomainConfig.getDomainId();
+        }
+
         log.info("Started");
     }
 
@@ -426,7 +468,7 @@ public class LldpLinkProvider extends AbstractProvider implements ProbedLinkProv
         }
 
         LinkDiscovery ld = discoverers.computeIfAbsent(device.id(),
-                                     did -> new LinkDiscovery(device, context));
+                                     did -> new LinkDiscovery(device, context, domainId));
         if (ld.isStopped()) {
             ld.start();
         }

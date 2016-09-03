@@ -1,10 +1,11 @@
 package org.onosproject.oxp.impl.oxpsuper;
 
-import org.apache.felix.scr.annotations.Activate;
-import org.apache.felix.scr.annotations.Component;
-import org.apache.felix.scr.annotations.Deactivate;
-import org.apache.felix.scr.annotations.Service;
+import org.apache.felix.scr.annotations.*;
+import org.onosproject.core.CoreService;
 import org.onosproject.net.DeviceId;
+import org.onosproject.net.config.NetworkConfigRegistry;
+import org.onosproject.net.topology.OxpDomainConfig;
+import org.onosproject.net.topology.OxpSuperConfig;
 import org.onosproject.oxp.OXPDomain;
 import org.onosproject.oxp.OxpMessageListener;
 import org.onosproject.oxp.oxpsuper.OxpDomainListener;
@@ -29,6 +30,12 @@ public class OxpSuperControllerImpl implements OxpSuperController {
 
     private static final Logger log = LoggerFactory.getLogger(OxpSuperControllerImpl.class);
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected NetworkConfigRegistry cfgRegistry;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected CoreService coreService;
+
     private Map<DeviceId, OXPDomain> domainMap;
 
     private SuperConnector connector = new SuperConnector(this);
@@ -42,7 +49,23 @@ public class OxpSuperControllerImpl implements OxpSuperController {
 
     @Activate
     public void activate() {
-        oxpVersion = OXPVersion.OXP_10;
+        OxpSuperConfig superConfig = null;
+        int tryTimes = 10;
+        int i = 0;
+        while (superConfig == null && i < tryTimes) {
+            superConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"),OxpSuperConfig.class);
+            i++;
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        if (null == superConfig) {
+            log.info("Failed to read OXPsuper config.");
+            return;
+        }
+        initSuperCfg();
         domainMap = new HashMap<>();
         connector.start();
         log.info("OxpSuperController started...");
@@ -55,6 +78,11 @@ public class OxpSuperControllerImpl implements OxpSuperController {
         log.info("OxpSuperController stoped...");
     }
 
+    public void initSuperCfg() {
+        OxpSuperConfig superConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"),OxpSuperConfig.class);
+        this.setOxpVersion(OXPVersion.ofWireValue(superConfig.getOxpVersin()));
+        this.setOxpSuperPort(superConfig.getSuperPort());
+    }
     @Override
     public OXPVersion getOxpVersion() {
         return this.oxpVersion;

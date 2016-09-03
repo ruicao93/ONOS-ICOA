@@ -2,11 +2,16 @@ package org.onosproject.oxp.impl.domain;
 
 import org.apache.felix.scr.annotations.*;
 import org.onosproject.core.CoreService;
+import org.onosproject.net.config.NetworkConfigRegistry;
+import org.onosproject.net.topology.OxpDomainConfig;
 import org.onosproject.oxp.domain.OxpDomainController;
 import org.onosproject.oxp.OxpSuper;
 import org.onosproject.oxp.domain.OxpSuperListener;
 import org.onosproject.oxp.OxpMessageListener;
 import org.onosproject.oxp.protocol.*;
+import org.onosproject.oxp.protocol.ver10.OXPCapabilitiesSerializerVer10;
+import org.onosproject.oxp.protocol.ver10.OXPConfigFlagsSerializerVer10;
+import org.onosproject.oxp.protocol.ver10.OXPSbpTypeSerializerVer10;
 import org.onosproject.oxp.types.DomainId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +30,11 @@ public class OxpDomainControllerImpl implements OxpDomainController {
 
     private static final Logger log = LoggerFactory.getLogger(OxpDomainControllerImpl.class);
 
-    private static final String APP_ID = "org.onosproject.oxp";
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected NetworkConfigRegistry cfgRegistry;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected CoreService coreService;
 
     protected String oxpSuperIp = "127.0.0.1";
     protected int oxpSuperPort = 6688;
@@ -45,41 +54,27 @@ public class OxpDomainControllerImpl implements OxpDomainController {
 
     private Set<OxpSuperListener> oxpSuperListeners = new CopyOnWriteArraySet<>();
 
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected CoreService coreService;
+
 
     @Activate
     public void activate() {
-        //-2. set OXP Version
-        this.setOxpVersion(OXPVersion.OXP_10);
-        //-1.DomainId
-        this.setDomainId(DomainId.of(4));
-        //0.super ip
-        this.setOxpSuperIp("192.168.48.57");
-        //1.super port
-        this.setOxpSuperPort(6688);
-        //2.sbp type
-        this.setOxpSbpType(OXPSbpType.OPENFLOW);
-        //3.sbp version
-        this.setOxpSbpVersion(OXPSbpVersion.of((byte)4, OXPVersion.OXP_10 ));
-        //4.capabilities
-        Set<OXPCapabilities> capabilities = new HashSet<>();
-        capabilities.add(OXPCapabilities.GROUP_STATS);
-        capabilities.add(OXPCapabilities.IP_REASM);
-        capabilities.add(OXPCapabilities.PORT_BLOCKED);
-        capabilities.add(OXPCapabilities.PORT_STATS);
-        capabilities.add(OXPCapabilities.QUEUE_STATS);
-        capabilities.add(OXPCapabilities.FLOW_STATS);
-        capabilities.add(OXPCapabilities.TABLE_STATS);
-        this.setCapabilities(capabilities);
-        //5.flags
-        Set<OXPConfigFlags> flags = new HashSet<>();
-        flags.add(OXPConfigFlags.CAP_BW);
-        this.setFlags(flags);
-        //6.period
-        this.setPeriod(5);
-        //7.miss send length
-        this.setMissSendLen(128);
+        OxpDomainConfig oxpDomainConfig = null;
+        int tryTimes = 10;
+        int i = 0;
+        while (oxpDomainConfig == null && i < tryTimes) {
+            oxpDomainConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"),OxpDomainConfig.class);
+            i++;
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        if (null == oxpDomainConfig) {
+            log.info("Failed to read OXPdomain config.");
+            return;
+        }
+        initDomainCfg();
         setUpConnectionToSuper();
         log.info("Started");
     }
@@ -93,6 +88,31 @@ public class OxpDomainControllerImpl implements OxpDomainController {
         log.info("Stoped");
     }
 
+    public void initDomainCfg() {
+        OxpDomainConfig domainConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"),OxpDomainConfig.class);
+        //-2. set OXP Version
+        this.setOxpVersion(OXPVersion.ofWireValue(domainConfig.getOxpVersion()));
+        //-1.DomainId
+        this.setDomainId(DomainId.of(domainConfig.getDomainId()));
+        //0.super ip
+        this.setOxpSuperIp(domainConfig.getSuperIp());
+        //1.super port
+        this.setOxpSuperPort(domainConfig.getSuperPort());
+        //2.sbp type
+        this.setOxpSbpType(OXPSbpTypeSerializerVer10.ofWireValue((byte) domainConfig.getSbpType()));
+        //3.sbp version
+        this.setOxpSbpVersion(OXPSbpVersion.of((byte) domainConfig.getSbpVersion(), getOxpVersion() ));
+        //4.capabilities
+        this.setCapabilities(OXPCapabilitiesSerializerVer10.ofWireValue(domainConfig.getCapabilities()));
+        //5.flags
+        Set<OXPConfigFlags> flags = new HashSet<>();
+        flags.add(OXPConfigFlags.CAP_BW);
+        this.setFlags(OXPConfigFlagsSerializerVer10.ofWireValue((byte) domainConfig.getFlags()));
+        //6.period
+        this.setPeriod(domainConfig.getPeriod());
+        //7.miss send length
+        this.setMissSendLen(domainConfig.getMissSendLength());
+    }
     @Override
     public void processMessage(OXPMessage msg) {
         for (OxpMessageListener listener : oxpMessageListeners) {

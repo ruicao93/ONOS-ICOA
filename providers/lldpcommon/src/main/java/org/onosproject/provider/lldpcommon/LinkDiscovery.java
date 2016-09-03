@@ -68,6 +68,8 @@ public class LinkDiscovery implements TimerTask {
     // Set of ports to be probed
     private final Set<Long> ports = Sets.newConcurrentHashSet();
 
+    private String domainId;
+
     /**
      * Instantiates discovery manager for the given physical switch. Creates a
      * generic LLDP packet that will be customized for the port it is sent out on.
@@ -79,6 +81,27 @@ public class LinkDiscovery implements TimerTask {
     public LinkDiscovery(Device device, LinkDiscoveryContext context) {
         this.device = device;
         this.context = context;
+
+        ethPacket = new Ethernet();
+        ethPacket.setEtherType(Ethernet.TYPE_LLDP);
+        ethPacket.setDestinationMACAddress(ONOSLLDP.LLDP_NICIRA);
+        ethPacket.setPad(true);
+
+        bddpEth = new Ethernet();
+        bddpEth.setEtherType(Ethernet.TYPE_BSN);
+        bddpEth.setDestinationMACAddress(ONOSLLDP.BDDP_MULTICAST);
+        bddpEth.setPad(true);
+
+        isStopped = true;
+        start();
+        log.debug("Started discovery manager for switch {}", device.id());
+
+    }
+
+    public LinkDiscovery(Device device, LinkDiscoveryContext context, String domainId) {
+        this.device = device;
+        this.context = context;
+        this.domainId  =domainId;
 
         ethPacket = new Ethernet();
         ethPacket.setEtherType(Ethernet.TYPE_LLDP);
@@ -268,15 +291,17 @@ public class LinkDiscovery implements TimerTask {
             context.packetService().emit(bpkt);
         }
         //oxp LLDP
-        OXPLLDP oxplldp = OXPLLDP.oxpLLDP(Long.valueOf(device.id().toString().substring("of:".length())),
-                portNumber.intValue(),
-                4,
-                0xffff);
-        ethPacket.setSourceMACAddress(context.fingerprint()).setPayload(oxplldp);
-        OutboundPacket oxpLldpPacket = new DefaultOutboundPacket(device.id(),
-                builder().setOutput(portNumber(portNumber)).build(),
-                ByteBuffer.wrap(ethPacket.serialize()));
-        context.packetService().emit(oxpLldpPacket);
+        if (null != domainId) {
+            OXPLLDP oxplldp = OXPLLDP.oxpLLDP(Long.valueOf(device.id().toString().substring("of:".length())),
+                    portNumber.intValue(),
+                    Long.valueOf(domainId),
+                    0xffff);
+            ethPacket.setSourceMACAddress(context.fingerprint()).setPayload(oxplldp);
+            OutboundPacket oxpLldpPacket = new DefaultOutboundPacket(device.id(),
+                    builder().setOutput(portNumber(portNumber)).build(),
+                    ByteBuffer.wrap(ethPacket.serialize()));
+            context.packetService().emit(oxpLldpPacket);
+        }
     }
 
     public boolean containsPort(long portNumber) {
