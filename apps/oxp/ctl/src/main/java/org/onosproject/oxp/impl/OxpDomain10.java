@@ -44,7 +44,7 @@ public class OxpDomain10 implements OXPDomain {
     private void sendMsgsOnChannel(List<OXPMessage> msgs) {
         if (channel.isConnected()) {
             channel.write(msgs);
-            superController.processDownstreamMessage(msgs);
+            superController.processDownstreamMessage(deviceId, msgs);
         } else {
             log.warn("Drop msg because oxpdomain channel is disconnected,msgs:{}", msgs);
         }
@@ -63,7 +63,7 @@ public class OxpDomain10 implements OXPDomain {
 
     @Override
     public void handleMessage(OXPMessage msg) {
-        this.superController.processMessage(msg);
+        this.superController.processMessage(deviceId, msg);
     }
 
     @Override

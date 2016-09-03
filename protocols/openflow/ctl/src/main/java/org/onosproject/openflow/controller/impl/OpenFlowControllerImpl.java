@@ -87,7 +87,7 @@ import static org.onlab.util.Tools.groupedThreads;
 @Service
 public class OpenFlowControllerImpl implements OpenFlowController {
     private static final String APP_ID = "org.onosproject.openflow-base";
-    private static final String DEFAULT_OFPORT = "6633,6653,6664";
+    private static final String DEFAULT_OFPORT = "6633,6653";
     private static final int DEFAULT_WORKER_THREADS = 16;
 
     private static final Logger log =
