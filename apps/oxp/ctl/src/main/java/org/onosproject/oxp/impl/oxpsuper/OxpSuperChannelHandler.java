@@ -123,6 +123,11 @@ public class OxpSuperChannelHandler extends IdleStateAwareChannelHandler {
             }
 
             @Override
+            void processOXPVportStatus(OxpSuperChannelHandler h, OXPVportStatus m) throws IOException {
+                h.dispatchMessage(m);
+            }
+
+            @Override
             void processOxpSbp(OxpSuperChannelHandler h, OXPSbp m) throws IOException {
                 h.dispatchMessage(m);
             }
@@ -198,6 +203,8 @@ public class OxpSuperChannelHandler extends IdleStateAwareChannelHandler {
                 case OXPT_HOST_REPLY:
                     processOXPHostRely(h, (OXPHostReply) m);
                     break;
+                case OXPT_VPORT_STATUS:
+                    processOXPVportStatus(h, (OXPVportStatus) m);
                 default:
                     unhandledMessageReceived(h, m);
             }
@@ -240,6 +247,10 @@ public class OxpSuperChannelHandler extends IdleStateAwareChannelHandler {
 
         }
         void processOXPHostRely(OxpSuperChannelHandler h, OXPHostReply m) throws IOException {
+
+        }
+
+        void processOXPVportStatus(OxpSuperChannelHandler h, OXPVportStatus m) throws IOException {
 
         }
 
