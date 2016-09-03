@@ -298,6 +298,9 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                 packetService.emit(outboundPacket);
                 context.block();
             }else {
+                if (null == getVportNum(edgeConnectPoint)) {
+                    addOrUpdateVport(edgeConnectPoint);
+                }
                 // Send lldp to Super throuth SBP message
                 // build packet_in from lldp
                 OXPLLDP sbpOxplldp = OXPLLDP.oxpLLDP(oxplldp.getDomainId(),
