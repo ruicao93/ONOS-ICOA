@@ -117,6 +117,11 @@ public class OxpDomainRouting {
         log.info("Stoped");
     }
 
+    /**
+     * 翻译Packet-out消息
+     * @param pktout
+     * @throws DeserializationException
+     */
     private void translatePacketOutMessage(OFPacketOut pktout) throws DeserializationException {
         Ethernet ethpkt = Ethernet.deserializer().deserialize(pktout.getData(), 0, pktout.getData().length);
         OFPort outPort  = null;
@@ -270,6 +275,12 @@ public class OxpDomainRouting {
         }
     }
 
+    /**
+     * 处理来自device的Packet-in消息,处理一下三种数据包:
+     *  1.ARP-Request
+     *  2.ARP-Repy
+     *  3.Ip
+     */
     private class ReactivePacketProcessor implements PacketProcessor {
         @Override
         public void process(PacketContext context) {
@@ -289,6 +300,7 @@ public class OxpDomainRouting {
 
             IpAddress target;
             HostId id = HostId.hostId(ethPkt.getDestinationMAC());
+            // 只处理Arp和IPV4
             if (ethPkt.getEtherType() == Ethernet.TYPE_ARP) {
                 target = Ip4Address.valueOf(((ARP) ethPkt.getPayload()).getTargetProtocolAddress());
             } else if (ethPkt.getEtherType() == Ethernet.TYPE_IPV4) {
@@ -322,11 +334,14 @@ public class OxpDomainRouting {
                     .setSbpData(OXPSbpData.of(data, domainController.getOxpVersion()))
                     .build();
             domainController.write(oxpSbp);
-            flood(ethPkt);
+            //flood(ethPkt);
             context.block();
         }
     }
 
+    /**
+     * 翻译SBP消息
+     */
     private class InternalOxpSuperMsgListener implements OxpSuperMessageListener {
         @Override
         public void handleIncomingMessage(OXPMessage msg) {
