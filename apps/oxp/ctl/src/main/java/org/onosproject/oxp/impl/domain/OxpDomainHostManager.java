@@ -75,6 +75,9 @@ public class OxpDomainHostManager {
         for (Host host : hostService.getHosts()) {
             oxpHosts.addAll(toOxpHosts(host, OXPHostState.ACTIVE));
         }
+        if (oxpHosts.isEmpty()) {
+            return;
+        }
         sendHostChangeMsg(oxpHosts, oxpHostRequest);
     }
 
