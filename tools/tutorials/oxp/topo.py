@@ -20,7 +20,7 @@ import logging
 import os
 def multiControllerNet():
 	net = Mininet(controller=None,switch=OVSSwitch, link=TCLink, autoSetMacs=True)
-	domain1 = net.addController("domain1", controller=RemoteController,ip="192.168.48.57",port=6633)
+	domain1 = net.addController("domain1", controller=RemoteController,ip="10.103.90.102",port=6633)
 	domain2 = net.addController("domain2", controller=RemoteController,port=6633)
 	s1 = net.addSwitch("s1")
 	s2 = net.addSwitch("s2")
