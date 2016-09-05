@@ -140,6 +140,9 @@ public class OxpDomainHostManager {
             if (null != updatedHost) {
                 oxpHosts.addAll(toOxpHosts(updatedHost, OXPHostState.ACTIVE));
             }
+            if (oxpHosts.isEmpty()) {
+                return;
+            }
             sendHostChangeMsg(oxpHosts, null);
         }
     }

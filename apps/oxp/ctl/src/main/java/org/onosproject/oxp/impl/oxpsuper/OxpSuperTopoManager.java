@@ -138,7 +138,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
             PortNumber dstPortNum = PortNumber.portNumber(internalLink.getDstVport().getPortNumber());
             ConnectPoint srcConnectPoint = new ConnectPoint(deviceId, srcPortNum);
             ConnectPoint dstConnectPoint = new ConnectPoint(deviceId, dstPortNum);
-            if (srcPortNum == dstPortNum) {
+            if (srcPortNum.equals(dstPortNum)) {
                 vportCapabilityMap.put(srcConnectPoint, internalLink.getCapability());
                 continue;
             }
