@@ -10,7 +10,7 @@
                 "capabilities":255,
                 "sbpType":1,
                 "sbpVersion":4,
-                "superIp":"192.168.48.57",
+                "superIp":"10.103.90.102",
                 "superPort":6688
             },
             "super":{
