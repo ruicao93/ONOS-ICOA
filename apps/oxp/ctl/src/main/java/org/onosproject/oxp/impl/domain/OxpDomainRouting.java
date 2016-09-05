@@ -331,6 +331,7 @@ public class OxpDomainRouting {
             byte[] data = new byte[buffer.readableBytes()];
             buffer.readBytes(data, 0, buffer.readableBytes());
             OXPSbp oxpSbp = oxpFactory.buildSbp()
+                    .setSbpCmpType(OXPSbpCmpType.NORMAL)
                     .setSbpData(OXPSbpData.of(data, domainController.getOxpVersion()))
                     .build();
             domainController.write(oxpSbp);
