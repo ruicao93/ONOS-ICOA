@@ -325,7 +325,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                 // build packet_in from lldp
                 OXPLLDP sbpOxplldp = OXPLLDP.oxpLLDP(oxplldp.getDomainId(),
                         oxplldp.getVportNum(),
-                        domainController.getDomainId().getLong(),
+                        oxplldp.getDomainId(),
                         oxplldp.getVportNum());
                 Ethernet ethPacket = new Ethernet();
                 ethPacket.setEtherType(Ethernet.TYPE_LLDP);
