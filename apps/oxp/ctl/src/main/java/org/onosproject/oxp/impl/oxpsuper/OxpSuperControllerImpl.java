@@ -12,6 +12,7 @@ import org.onosproject.oxp.oxpsuper.OxpDomainListener;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.protocol.OXPMessage;
 import org.onosproject.oxp.protocol.OXPVersion;
+import org.projectfloodlight.openflow.protocol.OFFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

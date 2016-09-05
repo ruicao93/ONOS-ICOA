@@ -7,6 +7,9 @@ import org.onosproject.oxp.OxpSuper;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.DomainId;
+import org.projectfloodlight.openflow.protocol.OFFactories;
+import org.projectfloodlight.openflow.protocol.OFFactory;
+import org.projectfloodlight.openflow.protocol.OFVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +33,7 @@ public class OxpDomain10 implements OXPDomain {
     private OxpSuper oxpSuper;
     private OXPVersion oxpVersion;
     private OxpSuperController superController;
+    private OFVersion ofVersion;
 
     private String channelId;
     private Channel channel;
@@ -69,6 +73,11 @@ public class OxpDomain10 implements OXPDomain {
     @Override
     public OXPFactory factory() {
         return OXPFactories.getFactory(oxpVersion);
+    }
+
+    @Override
+    public OFFactory ofFactory() {
+        return OFFactories.getFactory(ofVersion);
     }
 
     @Override
@@ -170,6 +179,9 @@ public class OxpDomain10 implements OXPDomain {
     @Override
     public void setOxpSbpVersion(OXPSbpVersion oxpSbpVersion) {
         this.oxpSbpVersion = oxpSbpVersion;
+        if (oxpSbpType == OXPSbpType.OPENFLOW && oxpSbpVersion.getSbpVersion() == (0x4)) {
+            ofVersion = OFVersion.OF_13;
+        }
     }
 
     @Override

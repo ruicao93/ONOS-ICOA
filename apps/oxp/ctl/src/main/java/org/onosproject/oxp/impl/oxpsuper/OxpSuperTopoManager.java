@@ -15,7 +15,11 @@ import org.onosproject.oxp.oxpsuper.OxpSuperTopoService;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.DomainId;
 import org.onosproject.oxp.types.OXPInternalLink;
+import org.projectfloodlight.openflow.exceptions.OFParseError;
+import org.projectfloodlight.openflow.protocol.OFFactories;
+import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
+import org.projectfloodlight.openflow.protocol.OFType;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.slf4j.Logger;
 
@@ -36,6 +40,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     private OxpSuperController superController;
 
+    // 监听Domain SBP消息，完成vport,topo收集和邻间链路发现
     private OxpDomainMessageListener domainMessageListener = new InternalDomainMessageListener();
 
     // 记录Vport
@@ -54,6 +59,10 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     private void activate() {
         vportMap = new HashMap<>();
         vportDescMap = new HashMap<>();
+        vportCapabilityMap = new HashMap<>();
+        internalLinksMap = new HashMap<>();
+        internalLinkDescMap = new HashMap<>();
+        interLinkSet = new HashSet<>();
         superController.addMessageListener(domainMessageListener);
     }
 
@@ -62,6 +71,10 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         superController.removeMessageListener(domainMessageListener);
         vportMap.clear();
         vportDescMap.clear();
+        vportCapabilityMap.clear();
+        internalLinksMap.clear();
+        internalLinkDescMap.clear();
+        interLinkSet.clear();
     }
 
     @Override
@@ -177,6 +190,10 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
                 .build();
         interLinkSet.add(link);
     }
+
+    /**
+     * 监听Domain消息，完成vport,topo收集和邻间链路发现
+     */
     class InternalDomainMessageListener implements OxpDomainMessageListener {
         @Override
         public void handleIncomingMessage(DeviceId deviceId, OXPMessage msg) {
@@ -190,8 +207,22 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
                 processTopoReplyMsg(deviceId, topologyReply);
                 return;
             }
-
-
+            if (msg.getType() == OXPType.OXPT_SBP) {
+                OXPSbp sbp = (OXPSbp) msg;
+                ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
+                sbp.getSbpData().writeTo(buffer);
+                OFMessage ofMsg = null;
+                try {
+                    ofMsg = OFFactories.getGenericReader().readFrom(buffer);
+                } catch (OFParseError e) {
+                    log.info(e.getMessage());
+                    return;
+                }
+                if (ofMsg.getType() == OFType.PACKET_IN) {
+                    processOxpLldp(deviceId, (OFPacketIn) ofMsg);
+                }
+                return;
+            }
 
         }
 

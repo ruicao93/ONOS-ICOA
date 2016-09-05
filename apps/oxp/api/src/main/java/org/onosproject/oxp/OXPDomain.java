@@ -4,6 +4,7 @@ import org.jboss.netty.channel.Channel;
 import org.onosproject.net.DeviceId;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.DomainId;
+import org.projectfloodlight.openflow.protocol.OFFactory;
 
 import java.util.List;
 import java.util.Set;
@@ -20,6 +21,7 @@ public interface OXPDomain {
     void handleMessage(OXPMessage msg);
 
     OXPFactory factory();
+    OFFactory ofFactory();
 
     void setConnected(boolean isConnected);
 
