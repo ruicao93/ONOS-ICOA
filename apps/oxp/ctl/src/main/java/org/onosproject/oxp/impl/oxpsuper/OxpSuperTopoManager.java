@@ -162,7 +162,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     private void processOxpLldp(DeviceId deviceId, OFPacketIn packetIn) {
         packetIn.getData();
         ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
-        buffer.readBytes(packetIn.getData());
+        buffer.writeBytes(packetIn.getData());
         Ethernet eth = null;
         try {
             Ethernet.deserializer().deserialize(buffer.array(), 0, buffer.readableBytes());
