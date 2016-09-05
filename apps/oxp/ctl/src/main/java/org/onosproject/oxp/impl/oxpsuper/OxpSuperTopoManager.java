@@ -145,6 +145,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
             Link link = DefaultLink.builder()
                     .src(srcConnectPoint)
                     .dst(dstConnectPoint)
+                    .type(Link.Type.DIRECT)
                     .providerId(internalLinksProviderId)
                     .build();
             links.add(link);
@@ -186,6 +187,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         Link link = DefaultLink.builder()
                 .src(srcConnectPoint)
                 .dst(dstConnectPoint)
+                .type(Link.Type.DIRECT)
                 .providerId(interLinksProviderId)
                 .build();
         interLinkSet.add(link);
