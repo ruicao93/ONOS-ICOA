@@ -165,7 +165,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         buffer.writeBytes(packetIn.getData());
         Ethernet eth = null;
         try {
-            Ethernet.deserializer().deserialize(buffer.array(), 0, buffer.readableBytes());
+            eth = Ethernet.deserializer().deserialize(buffer.array(), 0, buffer.readableBytes());
         } catch (DeserializationException e) {
             return;
         }
