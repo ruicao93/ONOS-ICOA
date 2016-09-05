@@ -35,6 +35,7 @@ import org.projectfloodlight.openflow.types.*;
 import org.slf4j.Logger;
 
 import java.nio.ByteBuffer;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -330,8 +331,11 @@ public class OxpDomainRouting {
             ofPacketInForSuper.writeTo(buffer);
             byte[] data = new byte[buffer.readableBytes()];
             buffer.readBytes(data, 0, buffer.readableBytes());
+            Set<OXPSbpFlags> oxpSbpflgs = new HashSet<>();
+            oxpSbpflgs.add(OXPSbpFlags.DATA_EXIST);
             OXPSbp oxpSbp = oxpFactory.buildSbp()
                     .setSbpCmpType(OXPSbpCmpType.NORMAL)
+                    .setFlags(oxpSbpflgs)
                     .setSbpData(OXPSbpData.of(data, domainController.getOxpVersion()))
                     .build();
             domainController.write(oxpSbp);
