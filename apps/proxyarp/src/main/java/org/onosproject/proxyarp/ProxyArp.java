@@ -219,7 +219,7 @@ public class ProxyArp {
             IpAddress target = Ip4Address.valueOf(arp.getTargetProtocolAddress());
             IpAddress sender = Ip4Address.valueOf(arp.getSenderProtocolAddress());
             Set<Host> hosts =  hostService.getHostsByIp(target);
-            if (null == hosts || hosts.size() == 0) {
+            if (null == hosts || hosts.isEmpty()) {
                 return;
             }
             proxyArpService.handlePacket(context);

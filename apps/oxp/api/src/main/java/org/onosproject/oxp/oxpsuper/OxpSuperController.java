@@ -1,12 +1,15 @@
 package org.onosproject.oxp.oxpsuper;
 
+import org.onlab.packet.Ethernet;
 import org.onosproject.net.DeviceId;
 import org.onosproject.oxp.OXPDomain;
 import org.onosproject.oxp.OxpDomainMessageListener;
 import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.protocol.*;
+import org.projectfloodlight.openflow.protocol.OFMessage;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Created by cr on 16-9-1.
@@ -37,4 +40,8 @@ public interface OxpSuperController {
     void processMessage(DeviceId deviceId,OXPMessage msg);
 
     OXPDomain getOxpDomain(DeviceId deviceId);
+    Set<OXPDomain> getOxpDomains();
+
+    OFMessage parseOfMessage(OXPSbp sbp);
+    Ethernet parseEthernet(byte data[]);
 }

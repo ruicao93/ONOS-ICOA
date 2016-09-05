@@ -1,6 +1,11 @@
 package org.onosproject.oxp.impl.oxpsuper;
 
+import com.google.common.collect.ImmutableSet;
 import org.apache.felix.scr.annotations.*;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
+import org.onlab.packet.DeserializationException;
+import org.onlab.packet.Ethernet;
 import org.onosproject.core.CoreService;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.config.NetworkConfigRegistry;
@@ -11,15 +16,16 @@ import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.oxpsuper.OxpDomainListener;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.protocol.OXPMessage;
+import org.onosproject.oxp.protocol.OXPSbp;
 import org.onosproject.oxp.protocol.OXPVersion;
+import org.projectfloodlight.openflow.exceptions.OFParseError;
+import org.projectfloodlight.openflow.protocol.OFFactories;
 import org.projectfloodlight.openflow.protocol.OFFactory;
+import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
@@ -159,7 +165,6 @@ public class OxpSuperControllerImpl implements OxpSuperController {
                 listener.domainDisconnected(oxpDomain);
             }
         }
-
     }
 
     @Override
@@ -179,6 +184,37 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     @Override
     public OXPDomain getOxpDomain(DeviceId deviceId) {
         return domainMap.get(deviceId);
+    }
+
+    @Override
+    public Set<OXPDomain> getOxpDomains() {
+        return ImmutableSet.copyOf(domainMap.values());
+    }
+
+    @Override
+    public OFMessage parseOfMessage(OXPSbp sbp) {
+        ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
+        sbp.getSbpData().writeTo(buffer);
+        OFMessage ofMsg = null;
+        try {
+            ofMsg = OFFactories.getGenericReader().readFrom(buffer);
+        } catch (OFParseError e) {
+            log.info(e.getMessage());
+            return null;
+        }
+        return ofMsg;
+    }
+    @Override
+    public Ethernet parseEthernet(byte data[]) {
+        ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
+        buffer.writeBytes(data);
+        Ethernet eth = null;
+        try {
+            eth = Ethernet.deserializer().deserialize(buffer.array(), 0, buffer.readableBytes());
+        } catch (DeserializationException e) {
+            return null;
+        }
+        return eth;
     }
 
 }

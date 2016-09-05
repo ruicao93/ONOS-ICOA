@@ -139,9 +139,9 @@ public class ReactiveForwarding {
             label = "Enable matching Vlan ID; default is false")
     private boolean matchVlanId = false;
 
-    @Property(name = "matchIpv4Address", boolValue = false,
+    @Property(name = "matchIpv4Address", boolValue = true,
             label = "Enable matching IPv4 Addresses; default is false")
-    private boolean matchIpv4Address = false;
+    private boolean matchIpv4Address = true;
 
     @Property(name = "matchIpv4Dscp", boolValue = false,
             label = "Enable matching IPv4 DSCP and ECN; default is false")
@@ -541,9 +541,11 @@ public class ReactiveForwarding {
         if (matchDstMacOnly) {
             selectorBuilder.matchEthDst(inPkt.getDestinationMAC());
         } else {
-            selectorBuilder.matchInPort(context.inPacket().receivedFrom().port())
-                    .matchEthSrc(inPkt.getSourceMAC())
-                    .matchEthDst(inPkt.getDestinationMAC());
+//
+//            selectorBuilder.matchInPort(context.inPacket().receivedFrom().port())
+//                    .matchEthSrc(inPkt.getSourceMAC())
+//                    .matchEthDst(inPkt.getDestinationMAC());
+            selectorBuilder.matchInPort(context.inPacket().receivedFrom().port());
 
             // If configured Match Vlan ID
             if (matchVlanId && inPkt.getVlanID() != Ethernet.VLAN_UNTAGGED) {

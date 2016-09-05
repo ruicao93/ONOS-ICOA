@@ -4,9 +4,7 @@ import com.google.common.collect.ImmutableList;
 import org.apache.felix.scr.annotations.*;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.onlab.packet.DeserializationException;
-import org.onlab.packet.Ethernet;
-import org.onlab.packet.OXPLLDP;
+import org.onlab.packet.*;
 import org.onosproject.net.*;
 import org.onosproject.net.provider.ProviderId;
 import org.onosproject.oxp.OxpDomainMessageListener;
@@ -14,6 +12,8 @@ import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.oxpsuper.OxpSuperTopoService;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.DomainId;
+import org.onosproject.oxp.types.IPv4Address;
+import org.onosproject.oxp.types.OXPHost;
 import org.onosproject.oxp.types.OXPInternalLink;
 import org.projectfloodlight.openflow.exceptions.OFParseError;
 import org.projectfloodlight.openflow.protocol.OFFactories;
@@ -24,6 +24,8 @@ import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.slf4j.Logger;
 
 import java.util.*;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static org.onlab.packet.Ethernet.TYPE_LLDP;
 import static org.onosproject.net.PortNumber.portNumber;
@@ -54,6 +56,8 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     // 记录interLinks
     private Set<Link> interLinkSet;
     private ProviderId interLinksProviderId = new ProviderId("'oxp", "interlinks");
+    // 记录HostLocation
+    private Map<DeviceId, Map<HostId, OXPHost>> hostMap;
 
     @Activate
     private void activate() {
@@ -63,6 +67,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         internalLinksMap = new HashMap<>();
         internalLinkDescMap = new HashMap<>();
         interLinkSet = new HashSet<>();
+        hostMap = new HashMap<>();
         superController.addMessageListener(domainMessageListener);
     }
 
@@ -75,6 +80,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         internalLinksMap.clear();
         internalLinkDescMap.clear();
         interLinkSet.clear();
+        hostMap.clear();
     }
 
     @Override
@@ -89,11 +95,39 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
 
     @Override
     public List<Link> getInterlinks() {
+        // TODO
         return null;
     }
 
     @Override
     public List<Link> getIntraLinks(DeviceId deviceId) {
+
+        //TODO
+        return null;
+    }
+
+    @Override
+    public Set<OXPHost> getHostsByIp(IpAddress ipAddress) {
+        IPv4Address iPv4Address = IPv4Address.of(ipAddress.toOctets());
+        Set<OXPHost> result = new HashSet<>();
+        for (Map<HostId, OXPHost> hosts : hostMap.values()) {
+            for (OXPHost host : hosts.values()) {
+                if (host.getIpAddress().equals(iPv4Address)) {
+                    result.add(host);
+                }
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public DeviceId getHostLocation(HostId hostId) {
+        for (DeviceId deviceId : hostMap.keySet()) {
+            Map<HostId, OXPHost> hosts = hostMap.get(deviceId);
+            if (hosts.get(hostId) != null) {
+                return deviceId;
+            }
+        }
         return null;
     }
 
@@ -139,6 +173,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
             ConnectPoint srcConnectPoint = new ConnectPoint(deviceId, srcPortNum);
             ConnectPoint dstConnectPoint = new ConnectPoint(deviceId, dstPortNum);
             if (srcPortNum.equals(dstPortNum)) {
+
                 vportCapabilityMap.put(srcConnectPoint, internalLink.getCapability());
                 continue;
             }
@@ -158,27 +193,16 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     /**
      * 处理lldp包, 发现邻间链路
      * @param deviceId
-     * @param packetIn
+     * @param eth
+     * @param inport
      */
-    private void processOxpLldp(DeviceId deviceId, OFPacketIn packetIn) {
-        packetIn.getData();
-        ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
-        buffer.writeBytes(packetIn.getData());
-        Ethernet eth = null;
-        try {
-            eth = Ethernet.deserializer().deserialize(buffer.array(), 0, buffer.readableBytes());
-        } catch (DeserializationException e) {
-            return;
-        }
-        if (eth == null || (eth.getEtherType() != TYPE_LLDP)) {
-            return;
-        }
+    private void processOxpLldp(DeviceId deviceId, Ethernet eth, PortNumber inport) {
         OXPLLDP oxplldp = OXPLLDP.parseOXPLLDP(eth);
         if (null == oxplldp) {
             return;
         }
         PortNumber srcPort = portNumber(oxplldp.getVportNum());
-        PortNumber dstPort = portNumber(packetIn.getMatch().get(MatchField.IN_PORT).getPortNumber());
+        PortNumber dstPort = inport;
         DomainId srcDomainId = DomainId.of(oxplldp.getDomainId());
         DeviceId srcDeviceId = DeviceId.deviceId("oxp:" + srcDomainId);
         DeviceId dstDeviceId = deviceId;
@@ -192,6 +216,25 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
                 .build();
         interLinkSet.add(link);
     }
+
+    private void processHostUpdate(DeviceId deviceId, List<OXPHost> hosts) {
+        Map<HostId, OXPHost> map = hostMap.get(deviceId);
+        if (null == map) {
+            map = new HashMap<>();
+            hostMap.put(deviceId, map);
+        }
+        for (OXPHost host : hosts) {
+            HostId hostId = HostId.hostId(MacAddress.valueOf(host.getMacAddress().getLong()));
+            if (host.getState().equals(OXPHostState.ACTIVE)) {
+                map.put(hostId, host);
+            } else {
+                map.remove(hostId);
+            }
+
+        }
+    }
+
+
 
     /**
      * 监听Domain消息，完成vport,topo收集和邻间链路发现
@@ -209,20 +252,36 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
                 processTopoReplyMsg(deviceId, topologyReply);
                 return;
             }
+            if (msg.getType() == OXPType.OXPT_HOST_UPDATE) {
+                OXPHostUpdate hostUpdate = (OXPHostUpdate) msg;
+                processHostUpdate(deviceId, hostUpdate.getHosts());
+                return;
+            }
+            if (msg.getType() == OXPType.OXPT_HOST_REPLY) {
+                OXPHostReply hostReply = (OXPHostReply) msg;
+                processHostUpdate(deviceId, hostReply.getHosts());
+                return;
+            }
             if (msg.getType() == OXPType.OXPT_SBP) {
                 OXPSbp sbp = (OXPSbp) msg;
                 ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
                 sbp.getSbpData().writeTo(buffer);
-                OFMessage ofMsg = null;
-                try {
-                    ofMsg = OFFactories.getGenericReader().readFrom(buffer);
-                } catch (OFParseError e) {
-                    log.info(e.getMessage());
+                OFMessage ofMsg = superController.parseOfMessage(sbp);
+                //只处理packet-in消息
+                if (null == ofMsg || ofMsg.getType() != OFType.PACKET_IN) {
                     return;
                 }
-                if (ofMsg.getType() == OFType.PACKET_IN) {
-                    processOxpLldp(deviceId, (OFPacketIn) ofMsg);
+                OFPacketIn packetIn = (OFPacketIn) ofMsg;
+                PortNumber inPort = PortNumber.portNumber(packetIn.getMatch().get(MatchField.IN_PORT).getPortNumber());
+                Ethernet eth = superController.parseEthernet(packetIn.getData());
+                if (null == eth) {
+                    return;
                 }
+                if (eth.getEtherType() == TYPE_LLDP) {
+                    processOxpLldp(deviceId, eth, inPort);
+                    return;
+                }
+
                 return;
             }
 
