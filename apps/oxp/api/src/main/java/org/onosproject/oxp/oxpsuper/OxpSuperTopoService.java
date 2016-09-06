@@ -29,8 +29,10 @@ public interface OxpSuperTopoService {
 
     DeviceId getHostLocation(HostId hostId);
 
-    // just one best Path is returned now.
+
     Set<Path> getPaths(DeviceId src, DeviceId dst);
+
+    Set<Path> getPaths(DeviceId src, DeviceId dst, LinkWeight weight);
 
     // just one best Path is returned now.
     Set<Path> getLoadBalancePaths(DeviceId src, DeviceId dst);

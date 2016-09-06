@@ -53,6 +53,8 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     private OxpSuperController superController;
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     private PathService pathService;
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    private TopologyService topologyService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected TopologyService topologyService;
@@ -167,33 +169,35 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     }
 
 
+    //Todo - move above
+    private BandwidthLinkWeight bandwidthLinkWeightTool = new BandwidthLinkWeight();
 
     @Override
-    public Set<Path> getPath(DeviceId src, DeviceId dst){
-        return pathService.getPaths(src, dst);
-    }
-    @Override
-    public Set<Path> getLoadBalancePath(DeviceId src, DeviceId dst){
-
-        //Build Topo
-
-
-
-        return topo.getPaths(src, dst, null);
+    public Set<Path> getLoadBalancePaths(DeviceId src, DeviceId dst) {
+        return topologyService.getPaths(currentTopo, src, dst, bandwidthLinkWeightTool);
     }
     private class BandwidthLinkWeight implements LinkWeight {
 
-        private static final double LINK_LINE_SPEED =10000000000.0; // 10Gbps
+        private static final double LINK_LINE_SPEED = 10000000000.0; // 10Gbps
+        private static final double LINK_WEIGHT_DOWN = -1.0;
+        private static final double LINK_WEIGHT_FULL = 0.0;
 
+        //FIXME - Bata1: Here, assume the edge is the inter-demain link
         @Override
         public double weight(TopologyEdge edge){
 
             if(edge.link().state() == Link.State.INACTIVE) {
-                return -1.0;
+                return LINK_WEIGHT_DOWN;
             }
 
-            OXPInternalLink internalLink = internalLinkDescMap.get(edge.link());
-            double restBandwidthPersent = internalLink.getCapability() / LINK_LINE_SPEED * 100;
+
+            //FIXME - Bata1: Here, assume the value in the map is the rest bandwidth of inter-demain link
+            long interLinkRestBandwidth =  vportCapabilityMap.get(edge.link());
+
+            if (interLinkRestBandwidth <= 0) {
+                return LINK_WEIGHT_FULL;
+            }
+            double restBandwidthPersent = interLinkRestBandwidth / LINK_LINE_SPEED * 100;
             return restBandwidthPersent;
         }
     }
