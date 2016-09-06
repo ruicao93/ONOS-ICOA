@@ -266,9 +266,9 @@ public class OxpDomainRouting {
 
     private void flood(Ethernet ethpkt) {
         TrafficTreatment.Builder builder = null;
-        ByteBuffer buff = ByteBuffer.wrap(ethpkt.serialize());
         for ( ConnectPoint connectPoint : edgeService.getEdgePoints()) {
             if (!oxpDomainTopoService.isOuterPort(connectPoint)) {
+                ByteBuffer buff = ByteBuffer.wrap(ethpkt.serialize());
                 builder = DefaultTrafficTreatment.builder();
                 builder.setOutput(connectPoint.port());
                 packetService.emit(new DefaultOutboundPacket(connectPoint.deviceId(),
