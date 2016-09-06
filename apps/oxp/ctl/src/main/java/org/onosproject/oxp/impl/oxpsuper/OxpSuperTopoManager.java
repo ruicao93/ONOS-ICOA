@@ -10,6 +10,10 @@ import org.onosproject.net.*;
 import org.onosproject.net.provider.ProviderId;
 import org.onosproject.net.topology.*;
 import org.onosproject.oxp.OXPDomain;
+import org.onosproject.net.topology.LinkWeight;
+import org.onosproject.net.topology.PathService;
+import org.onosproject.net.topology.TopologyEdge;
+import org.onosproject.net.topology.TopologyService;
 import org.onosproject.oxp.OxpDomainMessageListener;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.oxpsuper.OxpSuperTopoService;
@@ -47,6 +51,8 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     private OxpSuperController superController;
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    private PathService pathService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected TopologyService topologyService;
@@ -159,6 +165,40 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
                 topologyService.getPaths(topology, src, dst, weight);
         return paths;
     }
+
+
+
+    @Override
+    public Set<Path> getPath(DeviceId src, DeviceId dst){
+        return pathService.getPaths(src, dst);
+    }
+    @Override
+    public Set<Path> getLoadBalancePath(DeviceId src, DeviceId dst){
+
+        //Build Topo
+
+
+
+        return topo.getPaths(src, dst, null);
+    }
+    private class BandwidthLinkWeight implements LinkWeight {
+
+        private static final double LINK_LINE_SPEED =10000000000.0; // 10Gbps
+
+        @Override
+        public double weight(TopologyEdge edge){
+
+            if(edge.link().state() == Link.State.INACTIVE) {
+                return -1.0;
+            }
+
+            OXPInternalLink internalLink = internalLinkDescMap.get(edge.link());
+            double restBandwidthPersent = internalLink.getCapability() / LINK_LINE_SPEED * 100;
+            return restBandwidthPersent;
+        }
+    }
+
+
 
     private void addOrUpdateVport(DeviceId deviceId, OXPVportDesc vportDesc) {
         Set<PortNumber> vportSet = vportMap.get(deviceId);
