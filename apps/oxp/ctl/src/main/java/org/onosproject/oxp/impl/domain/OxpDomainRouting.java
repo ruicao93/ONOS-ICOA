@@ -312,6 +312,10 @@ public class OxpDomainRouting {
                 target = Ip4Address.valueOf(((ARP) ethPkt.getPayload()).getTargetProtocolAddress());
             } else if (ethPkt.getEtherType() == Ethernet.TYPE_IPV4) {
                 target = Ip4Address.valueOf(((IPv4) ethPkt.getPayload()).getDestinationAddress());
+                if (target.isMulticast()) {
+                    context.block();
+                    return;
+                }
             } else {
                 return;
             }
