@@ -77,7 +77,7 @@ public class OxpSuperRouting {
                 break;
             case ARP.OP_REQUEST:
                 Ethernet reply = ARP.buildArpReply(Ip4Address.valueOf(arp.getTargetProtocolAddress()), MacAddress.valueOf(host.getMacAddress().getLong()), eth);
-                packetOut(hostLocation, inPort, PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()), reply, xid);
+                packetOut(deviceId, inPort, PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()), reply, xid);
                 break;
             default:
                 return;
