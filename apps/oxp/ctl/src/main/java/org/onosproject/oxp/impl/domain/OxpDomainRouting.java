@@ -7,6 +7,7 @@ import org.onlab.packet.*;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
 import org.onosproject.net.*;
+import org.onosproject.net.device.DeviceService;
 import org.onosproject.net.edge.EdgePortService;
 import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
@@ -72,6 +73,9 @@ public class OxpDomainRouting {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected EdgePortService edgeService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected DeviceService deviceService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected TopologyService topologyService;
@@ -267,6 +271,7 @@ public class OxpDomainRouting {
     private void flood(Ethernet ethpkt) {
         TrafficTreatment.Builder builder = null;
         for ( ConnectPoint connectPoint : edgeService.getEdgePoints()) {
+            if (null == deviceService.getDevice(connectPoint.deviceId())) continue;
             if (!oxpDomainTopoService.isOuterPort(connectPoint)) {
                 ByteBuffer buff = ByteBuffer.wrap(ethpkt.serialize());
                 builder = DefaultTrafficTreatment.builder();
