@@ -139,7 +139,7 @@ public class OxpSuperRouting {
         // 安装
         Link formerLink = null;
         for (Link link : path.links()) {
-            if (link.equals(path.src())) {
+            if (link.src().equals(path.src())) {
                 OFFlowMod fm = buildFlowMod(superController.getOxpDomain(link.src().deviceId()), inPort, link.src().port(),
                         srcIp, target, xid, cookie);
                 installFlow(link.src().deviceId(), fm);
@@ -149,7 +149,7 @@ public class OxpSuperRouting {
                         srcIp, target, xid, cookie);
                 installFlow(link.src().deviceId(), fmFommer);
             }
-            if (link.equals(path.dst())) {
+            if (link.dst()  .equals(path.dst())) {
                 OFFlowMod fmLatter = buildFlowMod(superController.getOxpDomain(link.dst().deviceId()), link.dst().port(),
                         PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()),
                         srcIp, target, xid, cookie);
