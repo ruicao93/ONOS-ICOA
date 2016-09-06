@@ -1,10 +1,8 @@
 package org.onosproject.oxp.oxpsuper;
 
 import org.onlab.packet.IpAddress;
-import org.onosproject.net.DeviceId;
-import org.onosproject.net.HostId;
-import org.onosproject.net.Link;
-import org.onosproject.net.PortNumber;
+import org.onosproject.net.*;
+import org.onosproject.net.topology.LinkWeight;
 import org.onosproject.oxp.protocol.OXPVportDesc;
 import org.onosproject.oxp.types.OXPHost;
 import org.onosproject.oxp.types.OXPVport;
@@ -28,5 +26,9 @@ public interface OxpSuperTopoService {
     Set<OXPHost> getHostsByIp(IpAddress ipAddress);
 
     DeviceId getHostLocation(HostId hostId);
+
+    Set<Path> getPaths(DeviceId src, DeviceId dst);
+
+    Set<Path> getPaths(DeviceId src, DeviceId dst, LinkWeight weight);
 
 }

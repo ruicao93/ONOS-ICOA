@@ -8,8 +8,7 @@ import org.onlab.packet.*;
 import org.onosproject.common.DefaultTopology;
 import org.onosproject.net.*;
 import org.onosproject.net.provider.ProviderId;
-import org.onosproject.net.topology.DefaultGraphDescription;
-import org.onosproject.net.topology.GraphDescription;
+import org.onosproject.net.topology.*;
 import org.onosproject.oxp.OXPDomain;
 import org.onosproject.oxp.OxpDomainMessageListener;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
@@ -19,6 +18,7 @@ import org.onosproject.oxp.types.DomainId;
 import org.onosproject.oxp.types.IPv4Address;
 import org.onosproject.oxp.types.OXPHost;
 import org.onosproject.oxp.types.OXPInternalLink;
+import org.onosproject.security.AppGuard;
 import org.projectfloodlight.openflow.exceptions.OFParseError;
 import org.projectfloodlight.openflow.protocol.OFFactories;
 import org.projectfloodlight.openflow.protocol.OFMessage;
@@ -31,8 +31,10 @@ import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.onlab.packet.Ethernet.TYPE_LLDP;
 import static org.onosproject.net.PortNumber.portNumber;
+import static org.onosproject.security.AppPermission.Type.TOPOLOGY_READ;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
@@ -45,6 +47,9 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     private OxpSuperController superController;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected TopologyService topologyService;
 
     // 监听Domain SBP消息，完成vport,topo收集和邻间链路发现
     private OxpDomainMessageListener domainMessageListener = new InternalDomainMessageListener();
@@ -136,6 +141,23 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
             }
         }
         return null;
+
+    }
+
+    @Override
+    public Set<Path> getPaths(DeviceId src, DeviceId dst) {
+        return getPaths(src, dst, null);
+    }
+
+    @Override
+    public Set<Path> getPaths(DeviceId src, DeviceId dst, LinkWeight weight) {
+        checkNotNull(src);
+        checkNotNull(dst);
+        Topology topology = currentTopo;
+        Set<Path> paths = weight == null ?
+                topologyService.getPaths(topology, src, dst) :
+                topologyService.getPaths(topology, src, dst, weight);
+        return paths;
     }
 
     private void addOrUpdateVport(DeviceId deviceId, OXPVportDesc vportDesc) {

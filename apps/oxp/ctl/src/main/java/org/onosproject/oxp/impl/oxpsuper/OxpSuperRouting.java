@@ -86,7 +86,6 @@ public class OxpSuperRouting {
 
 
     private void processIpv4(DeviceId deviceId, Ethernet eth, PortNumber inPort, long xid, long cookie) {
-        Path path;
         IPv4 iPv4 = (IPv4) eth.getPayload();
         IpAddress srcIp = Ip4Address.valueOf(iPv4.getSourceAddress());
         IpAddress target = Ip4Address.valueOf(iPv4.getDestinationAddress());
@@ -107,32 +106,58 @@ public class OxpSuperRouting {
         //若在同一域内
         if (srcDeviceId.equals(dstDeviceId)) {
             // 安装流表 inport: inport, outPort:local
-            OFActionOutput.Builder action = srcDomain.ofFactory().actions().buildOutput()
-                    .setPort(OFPort.of(OXPVport.LOCAL.getPortNumber()));
-            List<OFAction> actions = new ArrayList<>();
-            Match.Builder mBuilder = srcDomain.ofFactory().buildMatch();
-            mBuilder.setExact(MatchField.IN_PORT,
-                    OFPort.of(OXPVport.LOCAL.getPortNumber()));
-            mBuilder.setExact(MatchField.IPV4_SRC,
-                    IPv4Address.of(srcIp.getIp4Address().toInt()));
-            mBuilder.setExact(MatchField.IPV4_DST,
-                    IPv4Address.of(target.getIp4Address().toInt()));
-            Match match = mBuilder.build();
-            OFFlowAdd fm = srcDomain.ofFactory().buildFlowAdd()
-                    .setXid(xid)
-                    .setCookie(U64.of(cookie))
-                    .setBufferId(OFBufferId.NO_BUFFER)
-                    .setActions(actions)
-                    .setMatch(match)
-                    .setFlags(Collections.singleton(OFFlowModFlags.SEND_FLOW_REM))
-                    .setPriority(10)
-                    .build();
+            OFFlowMod fm = buildFlowMod(srcDomain, inPort, PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()),
+                    srcIp, target, xid, cookie);
+//            OFActionOutput.Builder action = srcDomain.ofFactory().actions().buildOutput()
+//                    .setPort(OFPort.of(OXPVport.LOCAL.getPortNumber()));
+//            List<OFAction> actions = new ArrayList<>();
+//            Match.Builder mBuilder = srcDomain.ofFactory().buildMatch();
+//            mBuilder.setExact(MatchField.IN_PORT,
+//                    OFPort.of(OXPVport.LOCAL.getPortNumber()));
+//            mBuilder.setExact(MatchField.IPV4_SRC,
+//                    IPv4Address.of(srcIp.getIp4Address().toInt()));
+//            mBuilder.setExact(MatchField.IPV4_DST,
+//                    IPv4Address.of(target.getIp4Address().toInt()));
+//            Match match = mBuilder.build();
+//            OFFlowAdd fm = srcDomain.ofFactory().buildFlowAdd()
+//                    .setXid(xid)
+//                    .setCookie(U64.of(cookie))
+//                    .setBufferId(OFBufferId.NO_BUFFER)
+//                    .setActions(actions)
+//                    .setMatch(match)
+//                    .setFlags(Collections.singleton(OFFlowModFlags.SEND_FLOW_REM))
+//                    .setPriority(10)
+//                    .build();
             installFlow(deviceId, fm);
             packetOut(deviceId, inPort, PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()), eth, xid);
             return;
         }
         // TODO computePath and install flows
+        Set<Path> paths = topoService.getPaths(srcDeviceId, dstDeviceId);
+        if (paths.isEmpty()) return;
+        Path path = (Path) paths.toArray()[0];
+        // 安装
+        Link formerLink = null;
+        for (Link link : path.links()) {
+            if (link.equals(path.src())) {
+                OFFlowMod fm = buildFlowMod(superController.getOxpDomain(link.src().deviceId()), inPort, link.src().port(),
+                        srcIp, target, xid, cookie);
+                installFlow(link.src().deviceId(), fm);
 
+            } else {
+                OFFlowMod fmFommer = buildFlowMod(superController.getOxpDomain(link.src().deviceId()), formerLink.dst().port(), link.src().port(),
+                        srcIp, target, xid, cookie);
+                installFlow(link.src().deviceId(), fmFommer);
+                if (link.equals(path.dst())) {
+                    OFFlowMod fmLatter = buildFlowMod(superController.getOxpDomain(link.dst().deviceId()), link.dst().port(),
+                            PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()),
+                            srcIp, target, xid, cookie);
+                    installFlow(link.dst().deviceId(), fmLatter);
+                    packetOut(link.dst().deviceId(), link.dst().port(), PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()), eth, xid);
+                }
+            }
+            formerLink = link;
+        }
     }
 
     private void packetOut(DeviceId deviceId,PortNumber inPort, PortNumber outPort, Ethernet eth, long xid) {
@@ -179,6 +204,33 @@ public class OxpSuperRouting {
                 .setSbpData(OXPSbpData.read(buffer, buffer.readableBytes(), domain.getOxpVersion()))
                 .build();
         superController.sendMsg(deviceId, oxpSbp);
+    }
+
+    private OFFlowMod buildFlowMod(OXPDomain srcDomain, PortNumber inPort, PortNumber outPort,
+                              IpAddress srcIp, IpAddress dstIP,
+                              long xid, long cookie) {
+        // 安装流表 inport: inport, outPort:local
+        OFActionOutput.Builder action = srcDomain.ofFactory().actions().buildOutput()
+                .setPort(OFPort.of((int) outPort.toLong()));
+        List<OFAction> actions = new ArrayList<>();
+        Match.Builder mBuilder = srcDomain.ofFactory().buildMatch();
+        mBuilder.setExact(MatchField.IN_PORT,
+                OFPort.of((int) inPort.toLong()));
+        mBuilder.setExact(MatchField.IPV4_SRC,
+                IPv4Address.of(srcIp.getIp4Address().toInt()));
+        mBuilder.setExact(MatchField.IPV4_DST,
+                IPv4Address.of(dstIP.getIp4Address().toInt()));
+        Match match = mBuilder.build();
+        OFFlowAdd fm = srcDomain.ofFactory().buildFlowAdd()
+                .setXid(xid)
+                .setCookie(U64.of(cookie))
+                .setBufferId(OFBufferId.NO_BUFFER)
+                .setActions(actions)
+                .setMatch(match)
+                .setFlags(Collections.singleton(OFFlowModFlags.SEND_FLOW_REM))
+                .setPriority(10)
+                .build();
+        return fm;
     }
 
     class InternalDomainMsgListener implements OxpDomainMessageListener {
