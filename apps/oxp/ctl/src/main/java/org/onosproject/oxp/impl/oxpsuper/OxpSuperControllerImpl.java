@@ -4,11 +4,15 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.felix.scr.annotations.*;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.onlab.packet.ChassisId;
 import org.onlab.packet.DeserializationException;
 import org.onlab.packet.Ethernet;
 import org.onosproject.core.CoreService;
+import org.onosproject.net.DefaultDevice;
+import org.onosproject.net.Device;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.config.NetworkConfigRegistry;
+import org.onosproject.net.provider.ProviderId;
 import org.onosproject.net.topology.OxpSuperConfig;
 import org.onosproject.oxp.OXPDomain;
 import org.onosproject.oxp.OxpDomainMessageListener;
@@ -44,6 +48,7 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     protected CoreService coreService;
 
     private Map<DeviceId, OXPDomain> domainMap;
+    private Map<DeviceId, Device> deviceMap;
 
     private SuperConnector connector = new SuperConnector(this);
     private Set<OxpDomainMessageListener> messageListeners = new CopyOnWriteArraySet<>();
@@ -74,6 +79,7 @@ public class OxpSuperControllerImpl implements OxpSuperController {
         }
         initSuperCfg();
         domainMap = new HashMap<>();
+        deviceMap = new HashMap<>();
         connector.start();
         log.info("OxpSuperController started...");
     }
@@ -82,6 +88,7 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     public void deactivate() {
         connector.stop();
         domainMap.clear();
+        deviceMap.clear();
         log.info("OxpSuperController stoped...");
     }
 
@@ -151,6 +158,9 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     @Override
     public void addDomain(DeviceId deviceId, OXPDomain domain) {
         domainMap.put(deviceId, domain);
+        Device device = new DefaultDevice(ProviderId.NONE, deviceId, Device.Type.CONTROLLER,
+                "FNL", "1.0", "1.0", "001", new ChassisId(domain.getDomainId().getLong()));
+        deviceMap.put(deviceId, device);
         for (OxpDomainListener listener : oxpDomainListeners) {
             listener.domainConnected(domain);
         }
@@ -161,6 +171,7 @@ public class OxpSuperControllerImpl implements OxpSuperController {
         OXPDomain oxpDomain = getOxpDomain(deviceId);
         if (null != oxpDomain) {
             domainMap.remove(deviceId);
+            deviceMap.remove(deviceId);
             for (OxpDomainListener listener : oxpDomainListeners) {
                 listener.domainDisconnected(oxpDomain);
             }
@@ -189,6 +200,16 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     @Override
     public Set<OXPDomain> getOxpDomains() {
         return ImmutableSet.copyOf(domainMap.values());
+    }
+
+    @Override
+    public Device getDevice(DeviceId deviceId) {
+        return deviceMap.get(deviceId);
+    }
+
+    @Override
+    public Set<Device> getDevices() {
+        return ImmutableSet.copyOf(deviceMap.values());
     }
 
     @Override

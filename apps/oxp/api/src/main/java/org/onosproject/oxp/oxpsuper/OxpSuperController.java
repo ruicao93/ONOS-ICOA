@@ -1,6 +1,7 @@
 package org.onosproject.oxp.oxpsuper;
 
 import org.onlab.packet.Ethernet;
+import org.onosproject.net.Device;
 import org.onosproject.net.DeviceId;
 import org.onosproject.oxp.OXPDomain;
 import org.onosproject.oxp.OxpDomainMessageListener;
@@ -41,6 +42,9 @@ public interface OxpSuperController {
 
     OXPDomain getOxpDomain(DeviceId deviceId);
     Set<OXPDomain> getOxpDomains();
+
+    Device getDevice(DeviceId deviceId);
+    Set<Device> getDevices();
 
     OFMessage parseOfMessage(OXPSbp sbp);
     Ethernet parseEthernet(byte data[]);

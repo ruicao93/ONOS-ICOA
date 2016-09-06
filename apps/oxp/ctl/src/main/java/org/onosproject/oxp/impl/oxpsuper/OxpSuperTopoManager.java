@@ -5,8 +5,12 @@ import org.apache.felix.scr.annotations.*;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.onlab.packet.*;
+import org.onosproject.common.DefaultTopology;
 import org.onosproject.net.*;
 import org.onosproject.net.provider.ProviderId;
+import org.onosproject.net.topology.DefaultGraphDescription;
+import org.onosproject.net.topology.GraphDescription;
+import org.onosproject.oxp.OXPDomain;
 import org.onosproject.oxp.OxpDomainMessageListener;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.oxpsuper.OxpSuperTopoService;
@@ -52,12 +56,18 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     // 记录internalLinks
     private Map<DeviceId, Set<Link>> internalLinksMap;
     private Map<Link, OXPInternalLink> internalLinkDescMap;
-    private ProviderId internalLinksProviderId = new ProviderId("oxp","internalLinks");
+    private ProviderId internalLinksProviderId = ProviderId.NONE;//new ProviderId("oxp","internalLinks");
     // 记录interLinks
     private Set<Link> interLinkSet;
-    private ProviderId interLinksProviderId = new ProviderId("'oxp", "interlinks");
+    private ProviderId interLinksProviderId = ProviderId.NONE;//new ProviderId("'oxp", "interlinks");
     // 记录HostLocation
     private Map<DeviceId, Map<HostId, OXPHost>> hostMap;
+
+    private volatile DefaultTopology currentTopo =
+            new DefaultTopology(ProviderId.NONE,
+                    new DefaultGraphDescription(0L, System.currentTimeMillis(),
+                            Collections.<Device>emptyList(),
+                            Collections.<Link>emptyList()));
 
     @Activate
     private void activate() {
@@ -95,15 +105,12 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
 
     @Override
     public List<Link> getInterlinks() {
-        // TODO
-        return null;
+        return ImmutableList.copyOf(interLinkSet);
     }
 
     @Override
     public List<Link> getIntraLinks(DeviceId deviceId) {
-
-        //TODO
-        return null;
+        return ImmutableList.copyOf(internalLinksMap.get(deviceId));
     }
 
     @Override
@@ -181,6 +188,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
                     .src(srcConnectPoint)
                     .dst(dstConnectPoint)
                     .type(Link.Type.DIRECT)
+                    .state(Link.State.ACTIVE)
                     .providerId(internalLinksProviderId)
                     .build();
             links.add(link);
@@ -214,7 +222,11 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
                 .type(Link.Type.DIRECT)
                 .providerId(interLinksProviderId)
                 .build();
+        if (interLinkSet.contains(link)) {
+            return;
+        }
         interLinkSet.add(link);
+        updateTopology();
     }
 
     private void processHostUpdate(DeviceId deviceId, List<OXPHost> hosts) {
@@ -234,6 +246,20 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         }
     }
 
+    private void updateTopology() {
+        Set<OXPDomain> domainSet = superController.getOxpDomains();
+        Set<DeviceId> devices = new HashSet<>();
+        for (OXPDomain domain : domainSet) {
+            devices.add(domain.getDeviceId());
+        }
+        GraphDescription graphDescription = new DefaultGraphDescription(System.nanoTime(),
+                System.currentTimeMillis(),
+                superController.getDevices(),
+                getInterlinks()
+                );
+        DefaultTopology newTopology = new DefaultTopology(ProviderId.NONE, graphDescription);
+        currentTopo = newTopology;
+    }
 
 
     /**
