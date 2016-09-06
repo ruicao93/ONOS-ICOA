@@ -40,7 +40,12 @@ import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.onlab.util.Tools.groupedThreads;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
@@ -94,6 +99,9 @@ public class OxpDomainRouting {
     private PacketProcessor packetProcessor = new ReactivePacketProcessor();
     private OxpSuperMessageListener oxpSbpMsgListener = new InternalOxpSuperMsgListener();
 
+    private static final Ip4Address broadcast = Ip4Address.valueOf("255.255.255.255");
+
+
     @Activate
     public void activate() {
         int tryTimes = 10;
@@ -118,6 +126,7 @@ public class OxpDomainRouting {
 
     @Deactivate
     public void deactivate() {
+
         packetService.removeProcessor(packetProcessor);
         domainController.removeMessageListener(oxpSbpMsgListener);
         log.info("Stoped");
@@ -312,7 +321,7 @@ public class OxpDomainRouting {
                 target = Ip4Address.valueOf(((ARP) ethPkt.getPayload()).getTargetProtocolAddress());
             } else if (ethPkt.getEtherType() == Ethernet.TYPE_IPV4) {
                 target = Ip4Address.valueOf(((IPv4) ethPkt.getPayload()).getDestinationAddress());
-                if (target.isMulticast()) {
+                if (target.equals(broadcast)) {
                     context.block();
                     return;
                 }
@@ -394,5 +403,4 @@ public class OxpDomainRouting {
 
         }
     }
-
 }

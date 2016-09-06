@@ -18,7 +18,12 @@ import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.onlab.util.Tools.groupedThreads;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
@@ -41,7 +46,7 @@ public class OxpDomainHostManager {
     private HostListener hostListener = new InternalHostListener();
     private OxpSuperMessageListener oxpMsgListener = new InternalOxpSuperMsgListener();
     private OxpSuperListener oxpSuperListener = new InternalOxpSuperListener();
-
+    private ScheduledExecutorService executor;
     @Activate
     public void activate() {
         int tryTimes = 10;
@@ -58,12 +63,17 @@ public class OxpDomainHostManager {
         domainController.addMessageListener(oxpMsgListener);
         domainController.addOxpSuperListener(oxpSuperListener);
         hostService.addListener(hostListener);
-
+        executor = newSingleThreadScheduledExecutor(groupedThreads("oxp/hostupdate", "oxp-hostupdate-%d", log));
+        executor.scheduleAtFixedRate(new HostUpdateTask(),
+                domainController.getPeriod(), domainController.getPeriod(), SECONDS);
         log.info("Started");
     }
 
     @Deactivate
     public void deactivate() {
+        if (executor != null) {
+            executor.shutdownNow();
+        }
         hostService.removeListener(hostListener);
         domainController.removeMessageListener(oxpMsgListener);
         domainController.removeOxpSuperListener(oxpSuperListener);
@@ -171,6 +181,13 @@ public class OxpDomainHostManager {
         @Override
         public void disconnectFromSuper(OxpSuper oxpSuper) {
 
+        }
+    }
+
+    class HostUpdateTask implements Runnable {
+        @Override
+        public void run() {
+            updateExistHosts(null);
         }
     }
 }
