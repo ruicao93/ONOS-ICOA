@@ -4,6 +4,7 @@ import org.apache.felix.scr.annotations.*;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.onlab.packet.*;
+import org.onlab.packet.MacAddress;
 import org.onosproject.net.*;
 import org.onosproject.oxp.OXPDomain;
 import org.onosproject.oxp.OxpDomainMessageListener;
@@ -18,10 +19,8 @@ import org.projectfloodlight.openflow.protocol.action.OFAction;
 import org.projectfloodlight.openflow.protocol.action.OFActionOutput;
 import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
-import org.projectfloodlight.openflow.types.IPv4Address;
-import org.projectfloodlight.openflow.types.OFBufferId;
-import org.projectfloodlight.openflow.types.OFPort;
-import org.projectfloodlight.openflow.types.U64;
+import org.projectfloodlight.openflow.types.*;
+import org.projectfloodlight.openflow.types.EthType;
 import org.slf4j.Logger;
 
 import java.util.*;
@@ -213,6 +212,7 @@ public class OxpSuperRouting {
         OFActionOutput.Builder action = srcDomain.ofFactory().actions().buildOutput()
                 .setPort(OFPort.of((int) outPort.toLong()));
         List<OFAction> actions = new ArrayList<>();
+        actions.add(action.build());
         Match.Builder mBuilder = srcDomain.ofFactory().buildMatch();
         mBuilder.setExact(MatchField.IN_PORT,
                 OFPort.of((int) inPort.toLong()));
@@ -220,6 +220,7 @@ public class OxpSuperRouting {
                 IPv4Address.of(srcIp.getIp4Address().toInt()));
         mBuilder.setExact(MatchField.IPV4_DST,
                 IPv4Address.of(dstIP.getIp4Address().toInt()));
+        mBuilder.setExact(MatchField.ETH_TYPE, EthType.IPv4);
         Match match = mBuilder.build();
         OFFlowAdd fm = srcDomain.ofFactory().buildFlowAdd()
                 .setXid(xid)
