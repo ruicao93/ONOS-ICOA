@@ -25,6 +25,7 @@ import org.onosproject.oxp.domain.OxpDomainTopoService;
 import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.OXPSbpData;
+import org.onosproject.oxp.types.OXPVport;
 import org.projectfloodlight.openflow.protocol.*;
 import org.projectfloodlight.openflow.protocol.action.OFAction;
 import org.projectfloodlight.openflow.protocol.action.OFActionOutput;
@@ -135,7 +136,7 @@ public class OxpDomainRouting {
         if (outPort == null) {
             return;
         }
-        if (outPort.equals(OFPort.LOCAL)) {
+        if (outPort.equals(OXPVport.LOCAL)) {
             if (ethpkt.getEtherType() == Ethernet.TYPE_ARP) {
                 ARP arp = (ARP) ethpkt.getPayload();
                 packetOut(Ip4Address.valueOf(arp.getTargetProtocolAddress()), ethpkt);
