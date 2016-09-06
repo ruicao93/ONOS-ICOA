@@ -162,9 +162,9 @@ public class LldpLinkProvider extends AbstractProvider implements ProbedLinkProv
     private boolean enabled = false;
 
     private static final String PROP_USE_BDDP = "useBDDP";
-    @Property(name = PROP_USE_BDDP, boolValue = true,
+    @Property(name = PROP_USE_BDDP, boolValue = false,
             label = "Use BDDP for link discovery")
-    private boolean useBddp = true;
+    private boolean useBddp = false;
 
     private static final String PROP_PROBE_RATE = "probeRate";
     private static final int DEFAULT_PROBE_RATE = 3000;

@@ -342,6 +342,8 @@ public class HostLocationProvider extends AbstractProvider implements HostProvid
                 updateLocationIP(hid, srcMac, vlan, hloc, ip);
 
             // IPv4: update location only
+            } else if (eth.getEtherType() != Ethernet.TYPE_ARP) {
+              return;
             } else if (eth.getEtherType() == Ethernet.TYPE_IPV4) {
                 updateLocation(hid, srcMac, vlan, hloc);
 
