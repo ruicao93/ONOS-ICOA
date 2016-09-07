@@ -345,7 +345,6 @@ public class OxpDomainRouting {
             byte[] frame = ethPkt.serialize();
             OFPacketIn ofPacketInForSuper = ofFactory.buildPacketIn()
                     .setBufferId(OFBufferId.NO_BUFFER)
-                    .setTotalLen(frame.length)
                     .setReason(OFPacketInReason.NO_MATCH)
                     .setTableId(TableId.ZERO)
                     .setCookie(U64.ofRaw(context.inPacket().cookie().get()))
@@ -354,8 +353,9 @@ public class OxpDomainRouting {
                     .build();
             ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
             ofPacketInForSuper.writeTo(buffer);
-            byte[] data = new byte[buffer.readableBytes()];
-            buffer.readBytes(data, 0, buffer.readableBytes());
+            byte[] data = buffer.array();
+            //byte[] data = new byte[buffer.readableBytes()];
+            //buffer.readBytes(data, 0, buffer.readableBytes());
             Set<OXPSbpFlags> oxpSbpflgs = new HashSet<>();
             oxpSbpflgs.add(OXPSbpFlags.DATA_EXIST);
             OXPSbp oxpSbp = oxpFactory.buildSbp()

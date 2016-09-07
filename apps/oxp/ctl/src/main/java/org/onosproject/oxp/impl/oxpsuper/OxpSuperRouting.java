@@ -241,8 +241,6 @@ public class OxpSuperRouting {
         public void handleIncomingMessage(DeviceId deviceId, OXPMessage msg) {
             if (msg.getType() == OXPType.OXPT_SBP) {
                 OXPSbp sbp = (OXPSbp) msg;
-                ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
-                sbp.getSbpData().writeTo(buffer);
                 OFMessage ofMsg = superController.parseOfMessage(sbp);
                 //只处理packet-in消息
                 if (null == ofMsg || ofMsg.getType() != OFType.PACKET_IN) {

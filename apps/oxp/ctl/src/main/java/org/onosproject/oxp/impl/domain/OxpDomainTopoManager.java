@@ -338,7 +338,6 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                 byte[] frame = ethPacket.serialize();
                 OFPacketIn ofPacketInForSuper = ofFactory.buildPacketIn()
                         .setBufferId(OFBufferId.NO_BUFFER)
-                        .setTotalLen(frame.length)
                         .setReason(OFPacketInReason.NO_MATCH)
                         .setTableId(TableId.ZERO)
                         .setCookie(U64.ofRaw(context.inPacket().cookie().get()))
