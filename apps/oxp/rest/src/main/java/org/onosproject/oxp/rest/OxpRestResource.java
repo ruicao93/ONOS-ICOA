@@ -15,9 +15,9 @@ import javax.ws.rs.core.Response;
 public class OxpRestResource extends AbstractWebResource {
 
     /**
-     * Hello OXP ^0^
-     * Sample for extending RESTful API
-     * @return Infos of Fnl
+     * Hello OXP ^0^.
+     * Sample for extending RESTful API.
+     * @return Infos of Fnl.
      */
     @GET
     @Path("fnl")

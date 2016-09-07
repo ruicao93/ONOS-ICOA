@@ -21,5 +21,6 @@
         <bundle>mvn:${project.groupId}/onos-oxp-protocol/${project.version}</bundle>
         <bundle>mvn:${project.groupId}/onos-oxp-api/${project.version}</bundle>
         <bundle>mvn:${project.groupId}/onos-oxp-ctl/${project.version}</bundle>
+        <bundle>mvn:${project.groupId}/onos-oxp-rest/${project.version}</bundle>
     </feature>
 </features>
