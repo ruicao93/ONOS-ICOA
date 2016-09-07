@@ -54,9 +54,6 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     private PathService pathService;
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    private TopologyService topologyService;
-
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected TopologyService topologyService;
 
     // 监听Domain SBP消息，完成vport,topo收集和邻间链路发现
