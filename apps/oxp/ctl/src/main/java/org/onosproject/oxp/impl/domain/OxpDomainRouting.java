@@ -203,7 +203,7 @@ public class OxpDomainRouting {
         if (srcConnectPoint.deviceId().equals(dstConnectPoint.deviceId())) {
             installForwardRule(srcConnectPoint.deviceId(), ethType,
                     srcIp, dstIp,
-                    PortNumber.portNumber(inPort.getPortNumber()), PortNumber.portNumber(outPort.getPortNumber()));
+                    srcConnectPoint.port(), dstConnectPoint.port());
             return;
         }
         // install path between connectpoints
@@ -213,17 +213,23 @@ public class OxpDomainRouting {
         List<Link> links = path.links();
         Link lastLink = null;
         for (Link link : links) {
-            DeviceId srcDeviceId = link.src().deviceId();
-            installForwardRule(srcDeviceId, ethType,
-                    srcIp, dstIp,
-                    link.src().port(), link.dst().port());
+            if (link.src().equals(path.src())) {
+                installForwardRule(link.src().deviceId(), ethType,
+                        srcIp, dstIp,
+                        srcConnectPoint.port(), link.src().port());
+            } else {
+                installForwardRule(link.src().deviceId(), ethType,
+                        srcIp, dstIp,
+                        lastLink.dst().port(), link.src().port());
+            }
+            if (link.dst().equals(path.dst())) {
+                installForwardRule(link.src().deviceId(), ethType,
+                        srcIp, dstIp,
+                        link.dst().port(), dstConnectPoint.port());
+            }
             lastLink = link;
-
         }
-        installForwardRule(lastLink.src().deviceId(), ethType,
-                srcIp, dstIp,
-                lastLink.src().port(), lastLink.dst().port());
-
+        //packetOut(dstConnectPoint, ethpkt);
     }
 
     private void installForwardRule(DeviceId deviceId, EthType ethType,
