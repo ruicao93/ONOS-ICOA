@@ -7,9 +7,12 @@ import org.onlab.packet.Ethernet;
 import org.onlab.packet.ONOSLLDP;
 import org.onlab.packet.OXPLLDP;
 import org.onosproject.cluster.ClusterMetadataService;
+import org.onosproject.incubator.net.PortStatisticsService;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
+import org.onosproject.net.Port;
 import org.onosproject.net.PortNumber;
+import org.onosproject.net.device.DeviceService;
 import org.onosproject.net.host.HostService;
 import org.onosproject.net.link.LinkEvent;
 import org.onosproject.net.link.LinkListener;
@@ -72,6 +75,12 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected PathService pathService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected PortStatisticsService portStatisticsService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected DeviceService deviceService;
 
     //TODO 需要添加Device监听,当有设备下线时,更新vport列表和links列表.
 
@@ -146,15 +155,26 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
             domainController.write(msg);
             // 4.计算internalLinks
             List<OXPInternalLink> internalLinks = new ArrayList<>();
+
             // 4.1添加Link: <vport,vport>,capability为默认值
-            // TODO: 应计算vport的capability 在此
-            internalLinks.add(OXPInternalLink.of(vport, vport,
-                    PortSpeed.SPEED_10MB.getSpeedBps(), OXPVersion.OXP_10));
+            // Mao: real port speed in bytes per second
+            //FIXME - Here,assume vport is in one "Device", not a "Host", so we can use DeviceId() directly.
+            //FIXME - If vport is on one "Host", it doesn't accord with OXP logic.
+            //TODO - Part 4.1 is not debuged and tested.
+            assert edgeConnectPoint.elementId() instanceof DeviceId;
+
+            Port borderPort = deviceService.getPort(edgeConnectPoint.deviceId(),edgeConnectPoint.port());
+            long linkSpeed = borderPort.portSpeed() * 1000000;//data source: Mbps
+            long liveSpeed = portStatisticsService.load(edgeConnectPoint).rate() * 8;//data source: Bps
+            internalLinks.add(OXPInternalLink.of(vport, vport, linkSpeed - liveSpeed, OXPVersion.OXP_10));
 
             // 4.2 check intra link
+            //TODO - capability of intra link is holding...
             for (ConnectPoint connectPoint : vportMap.keySet()) {
                 PortNumber existVport = vportMap.get(connectPoint);
-                if (existVport.toLong() == vport.getPortNumber()) continue;
+                if (existVport.toLong() == vport.getPortNumber())
+                    continue;
+
                 if (pathService.getPaths(edgeConnectPoint.deviceId(), connectPoint.deviceId()).size() > 0) {
                     OXPVport existOxpVport = OXPVport.ofShort((short) existVport.toLong());
                     //internalLinks = new ArrayList<>();
@@ -169,6 +189,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
             if (internalLinks.size() == 0) {
                 return;
             }
+
             // 5.将internalLinks发送至Super
             OXPTopologyReply topologyReply = oxpFactory
                     .buildTopologyReply()
