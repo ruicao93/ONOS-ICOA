@@ -3,6 +3,8 @@ package org.onosproject.oxp.oxpsuper;
 import org.onlab.packet.IpAddress;
 import org.onosproject.net.*;
 import org.onosproject.net.topology.LinkWeight;
+import org.onosproject.net.*;
+import org.onosproject.net.device.DeviceInterfaceDescription;
 import org.onosproject.oxp.protocol.OXPVportDesc;
 import org.onosproject.oxp.types.OXPHost;
 import org.onosproject.oxp.types.OXPVport;
@@ -27,8 +29,12 @@ public interface OxpSuperTopoService {
 
     DeviceId getHostLocation(HostId hostId);
 
+
     Set<Path> getPaths(DeviceId src, DeviceId dst);
 
     Set<Path> getPaths(DeviceId src, DeviceId dst, LinkWeight weight);
+
+    // just one best Path is returned now.
+    Set<Path> getLoadBalancePaths(DeviceId src, DeviceId dst);
 
 }

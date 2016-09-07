@@ -10,6 +10,10 @@ import org.onosproject.net.*;
 import org.onosproject.net.provider.ProviderId;
 import org.onosproject.net.topology.*;
 import org.onosproject.oxp.OXPDomain;
+import org.onosproject.net.topology.LinkWeight;
+import org.onosproject.net.topology.PathService;
+import org.onosproject.net.topology.TopologyEdge;
+import org.onosproject.net.topology.TopologyService;
 import org.onosproject.oxp.OxpDomainMessageListener;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.oxpsuper.OxpSuperTopoService;
@@ -47,6 +51,10 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     private OxpSuperController superController;
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    private PathService pathService;
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    private TopologyService topologyService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected TopologyService topologyService;
@@ -159,6 +167,42 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
                 topologyService.getPaths(topology, src, dst, weight);
         return paths;
     }
+
+
+    //Todo - move above
+    private BandwidthLinkWeight bandwidthLinkWeightTool = new BandwidthLinkWeight();
+
+    @Override
+    public Set<Path> getLoadBalancePaths(DeviceId src, DeviceId dst) {
+        return topologyService.getPaths(currentTopo, src, dst, bandwidthLinkWeightTool);
+    }
+    private class BandwidthLinkWeight implements LinkWeight {
+
+        private static final double LINK_LINE_SPEED = 10000000000.0; // 10Gbps
+        private static final double LINK_WEIGHT_DOWN = -1.0;
+        private static final double LINK_WEIGHT_FULL = 0.0;
+
+        //FIXME - Bata1: Here, assume the edge is the inter-demain link
+        @Override
+        public double weight(TopologyEdge edge){
+
+            if(edge.link().state() == Link.State.INACTIVE) {
+                return LINK_WEIGHT_DOWN;
+            }
+
+
+            //FIXME - Bata1: Here, assume the value in the map is the rest bandwidth of inter-demain link
+            long interLinkRestBandwidth =  vportCapabilityMap.get(edge.link());
+
+            if (interLinkRestBandwidth <= 0) {
+                return LINK_WEIGHT_FULL;
+            }
+            double restBandwidthPersent = interLinkRestBandwidth / LINK_LINE_SPEED * 100;
+            return restBandwidthPersent;
+        }
+    }
+
+
 
     private void addOrUpdateVport(DeviceId deviceId, OXPVportDesc vportDesc) {
         Set<PortNumber> vportSet = vportMap.get(deviceId);
