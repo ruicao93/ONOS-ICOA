@@ -148,7 +148,7 @@ public class OxpSuperRouting {
                         srcIp, target, xid, cookie);
                 installFlow(link.src().deviceId(), fmFommer);
             }
-            if (link.dst()  .equals(path.dst())) {
+            if (link.dst().equals(path.dst())) {
                 OFFlowMod fmLatter = buildFlowMod(superController.getOxpDomain(link.dst().deviceId()), link.dst().port(),
                         PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()),
                         srcIp, target, xid, cookie);

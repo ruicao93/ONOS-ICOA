@@ -149,7 +149,7 @@ public class OxpDomainRouting {
         if (outPort == null) {
             return;
         }
-        if (outPort.equals(OXPVport.LOCAL)) {
+        if (outPort.getPortNumber() == OXPVport.LOCAL.getPortNumber()) {
             if (ethpkt.getEtherType() == Ethernet.TYPE_ARP) {
                 ARP arp = (ARP) ethpkt.getPayload();
                 packetOut(Ip4Address.valueOf(arp.getTargetProtocolAddress()), ethpkt);
@@ -234,7 +234,7 @@ public class OxpDomainRouting {
                 .matchEthType((short) ethType.getValue())
                 .matchIPSrc(Ip4Prefix.valueOf(srcIp.getInt(),
                         Ip4Prefix.MAX_MASK_LENGTH))
-                .matchIPDst(Ip4Prefix.valueOf(srcIp.getInt(),
+                .matchIPDst(Ip4Prefix.valueOf(dstIp.getInt(),
                         Ip4Prefix.MAX_MASK_LENGTH));
         TrafficTreatment treatment = DefaultTrafficTreatment.builder()
                 .setOutput(outPort)
