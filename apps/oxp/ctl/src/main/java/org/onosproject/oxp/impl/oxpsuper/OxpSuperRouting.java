@@ -157,6 +157,8 @@ public class OxpSuperRouting {
             }
             formerLink = link;
         }
+        packetOut(superController.getOxpDomain(formerLink.dst().deviceId()).getDeviceId(),
+                formerLink.dst().port(), PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()), eth, xid);
     }
 
     private void packetOut(DeviceId deviceId,PortNumber inPort, PortNumber outPort, Ethernet eth, long xid) {
