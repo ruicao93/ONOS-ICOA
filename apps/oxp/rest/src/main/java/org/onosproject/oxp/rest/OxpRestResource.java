@@ -62,8 +62,8 @@ public class OxpRestResource extends AbstractWebResource {
             ObjectNode linkNode = mapper().createObjectNode();
             linkNode.put("srcDomain", get(OxpSuperController.class).getOxpDomain(link.src().deviceId()).getDomainId().getLong());
             linkNode.put("dstDomain", get(OxpSuperController.class).getOxpDomain(link.dst().deviceId()).getDomainId().getLong());
-            linkNode.put("srcVport", get(OxpSuperTopoService.class).getInterLinkDesc(link).getSrcVport().getPortNumber());
-            linkNode.put("dstVport", get(OxpSuperTopoService.class).getInterLinkDesc(link).getSrcVport().getPortNumber());
+            linkNode.put("srcVport", link.src().port().toLong());
+            linkNode.put("dstVport", link.dst().port().toLong());
             array.add(linkNode);
         }
         return ok(root).build();
