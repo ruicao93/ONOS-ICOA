@@ -228,7 +228,6 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     @Override
     public Ethernet parseEthernet(byte data[]) {
         ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
-        buffer.writeBytes(data);
         Ethernet eth = null;
         try {
             eth = Ethernet.deserializer().deserialize(buffer.array(), 0, buffer.readableBytes());

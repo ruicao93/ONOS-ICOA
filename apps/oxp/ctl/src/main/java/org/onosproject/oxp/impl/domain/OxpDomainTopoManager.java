@@ -364,6 +364,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                         .setCookie(U64.ofRaw(context.inPacket().cookie().get()))
                         .setMatch(mBuilder.build())
                         .setData(frame)
+                        .setTotalLen(frame.length)
                         .build();
                 ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
                 ofPacketInForSuper.writeTo(buffer);
