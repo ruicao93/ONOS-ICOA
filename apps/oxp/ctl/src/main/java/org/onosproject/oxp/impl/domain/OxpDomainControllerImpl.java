@@ -173,7 +173,7 @@ public class OxpDomainControllerImpl implements OxpDomainController {
     }
 
     @Override
-    public void write(OXPMessage msg) {
+    synchronized public void write(OXPMessage msg) {
         if (null != oxpSuper && oxpSuper.isConnected()) {
             oxpSuper.sendMsg(msg);
         }

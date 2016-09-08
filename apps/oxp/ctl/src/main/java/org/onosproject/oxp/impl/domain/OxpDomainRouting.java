@@ -24,6 +24,7 @@ import org.onosproject.net.topology.TopologyService;
 import org.onosproject.oxp.domain.OxpDomainController;
 import org.onosproject.oxp.domain.OxpDomainTopoService;
 import org.onosproject.oxp.OxpSuperMessageListener;
+import org.onosproject.oxp.exceptions.OXPParseError;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.OXPSbpData;
 import org.onosproject.oxp.types.OXPVport;
@@ -350,19 +351,19 @@ public class OxpDomainRouting {
                     .setCookie(U64.ofRaw(context.inPacket().cookie().get()))
                     .setMatch(mBuilder.build())
                     .setData(frame)
-                    .setTotalLen(frame.length)
+                    //.setTotalLen(frame.length)
                     .build();
             ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
             ofPacketInForSuper.writeTo(buffer);
             //byte[] data = buffer.array();
-            //byte[] data = new byte[buffer.readableBytes()];
-            //buffer.readBytes(data, 0, buffer.readableBytes());
+            byte[] data = new byte[buffer.readableBytes()];
+            buffer.readBytes(data, 0, buffer.readableBytes());
             Set<OXPSbpFlags> oxpSbpflgs = new HashSet<>();
             oxpSbpflgs.add(OXPSbpFlags.DATA_EXIST);
             OXPSbp oxpSbp = oxpFactory.buildSbp()
                     .setSbpCmpType(OXPSbpCmpType.NORMAL)
                     .setFlags(oxpSbpflgs)
-                    .setSbpData(OXPSbpData.read(buffer, buffer.readableBytes(), domainController.getOxpVersion()))
+                    .setSbpData(OXPSbpData.of(data, domainController.getOxpVersion()))
                     .build();
             domainController.write(oxpSbp);
             //flood(ethPkt);

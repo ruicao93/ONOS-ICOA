@@ -21,10 +21,11 @@ abstract class OXPInternalLinkVer10 {
         public OXPInternalLink readFrom(ChannelBuffer bb) throws OXPParseError {
             OXPVport srcVport = OXPVport.readFrom(bb);
             OXPVport dstVport = OXPVport.readFrom(bb);
-            byte[] capabilityBytes = new byte[6];
-            bb.readBytes(capabilityBytes);
-            String capabilityStr = new String(capabilityBytes, StandardCharsets.UTF_8);
-            long capability = Long.valueOf(capabilityStr, 16);
+//            byte[] capabilityBytes = new byte[6];
+//            bb.readBytes(capabilityBytes);
+//            String capabilityStr = new String(capabilityBytes, StandardCharsets.UTF_8);
+//            long capability = Long.valueOf(capabilityStr, 16);
+            long capability = bb.readLong();
             return OXPInternalLink.of(srcVport, dstVport, capability, OXPVersion.OXP_10);
         }
     }

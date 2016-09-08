@@ -55,7 +55,7 @@ public class OxpDomain10 implements OXPDomain {
     }
 
     @Override
-    public void sendMsg(OXPMessage msg) {
+    synchronized public void sendMsg(OXPMessage msg) {
         this.sendMsgsOnChannel(Collections.singletonList(msg));
     }
 

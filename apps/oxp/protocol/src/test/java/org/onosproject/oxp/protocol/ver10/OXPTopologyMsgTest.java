@@ -42,7 +42,7 @@ public class OXPTopologyMsgTest extends TestBaseVer10 {
         ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
         OXPVport vport = OXPVport.ofShort((short) 1);
         List<OXPInternalLink> internalLinks = new ArrayList<>();
-        internalLinks.add(OXPInternalLink.of(vport, vport, 100, OXPVersion.OXP_10));
+        internalLinks.add(OXPInternalLink.of(vport, vport, 9999999464L, OXPVersion.OXP_10));
         OXPTopologyReply topologyReply = getMsgFactory()
                 .buildTopologyReply()
                 .setInternalLink(internalLinks)

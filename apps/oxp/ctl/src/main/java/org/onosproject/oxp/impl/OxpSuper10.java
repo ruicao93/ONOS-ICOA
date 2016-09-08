@@ -55,7 +55,7 @@ public class OxpSuper10 implements OxpSuper {
     }
 
     @Override
-    public void sendMsg(List<OXPMessage> msgs) {
+    synchronized public void sendMsg(List<OXPMessage> msgs) {
         sendMsgsOnChannel(msgs);
     }
 
