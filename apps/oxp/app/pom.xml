@@ -12,7 +12,7 @@
     <artifactId>onos-oxp-app</artifactId>
     <packaging>pom</packaging>
 
-    <description>ONOS OXP  protocol domain application.</description>
+    <description>ONOS OXP protocol domain application.</description>
 
     <dependencies>
         <dependency>
@@ -28,6 +28,11 @@
         <dependency>
             <groupId>org.onosproject</groupId>
             <artifactId>onos-oxp-ctl</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-oxp-rest</artifactId>
             <version>${project.version}</version>
         </dependency>
 

@@ -12,12 +12,14 @@
     <artifactId>onos-oxp</artifactId>
     <packaging>pom</packaging>
 
-    <description>ONOS OXP  protocol domain subsystem.</description>
+    <description>ONOS OXP protocol domain subsystem.</description>
     <modules>
         <module>app</module>
         <module>protocol</module>
         <module>api</module>
         <module>ctl</module>
+        <module>rest</module>
+
     </modules>
 
 </project>
