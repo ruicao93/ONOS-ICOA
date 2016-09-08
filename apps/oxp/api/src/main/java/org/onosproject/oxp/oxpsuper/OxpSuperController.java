@@ -42,6 +42,7 @@ public interface OxpSuperController {
 
     OXPDomain getOxpDomain(DeviceId deviceId);
     Set<OXPDomain> getOxpDomains();
+    long getDomainCount();
 
     Device getDevice(DeviceId deviceId);
     Set<Device> getDevices();

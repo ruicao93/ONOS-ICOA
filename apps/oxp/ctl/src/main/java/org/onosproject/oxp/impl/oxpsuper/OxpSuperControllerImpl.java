@@ -213,6 +213,11 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     }
 
     @Override
+    public long getDomainCount() {
+        return domainMap.size();
+    }
+
+    @Override
     public OFMessage parseOfMessage(OXPSbp sbp) {
         ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
         sbp.getSbpData().writeTo(buffer);
