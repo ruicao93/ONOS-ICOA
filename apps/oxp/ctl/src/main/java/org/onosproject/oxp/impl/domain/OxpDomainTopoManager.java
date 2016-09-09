@@ -38,12 +38,18 @@ import org.slf4j.Logger;
 
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.onlab.packet.Ethernet.TYPE_LLDP;
+import static org.onlab.util.Tools.groupedThreads;
 import static org.onosproject.net.PortNumber.portNumber;
 import static org.onosproject.net.flow.DefaultTrafficTreatment.builder;
 import static org.slf4j.LoggerFactory.getLogger;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Created by cr on 16-8-18.
@@ -94,6 +100,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
     private Map<ConnectPoint, PortNumber> vportMap = new HashMap<>();
     private Map<PortNumber, Long> vportCapabilityMap = new HashMap<>();
 
+    private ScheduledExecutorService executor;
 
     private final static int LLDP_VPORT_LOCAL = 0xffff;
     private final static long DEFAULT_VPORT_CAP = 0;
@@ -116,12 +123,17 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         domainController.addOxpSuperListener(oxpSuperListener);
         linkService.addListener(linkListener);
         packetService.addProcessor(oxpLlapPacketProcessor, PacketProcessor.advisor(0));
-
+        executor = newSingleThreadScheduledExecutor(groupedThreads("oxp/topoupdate", "oxp-topoupdate-%d", log));
+        executor.scheduleAtFixedRate(new TopoUpdateTask(),
+                domainController.getPeriod(), domainController.getPeriod(), SECONDS);
         log.info("Started");
     }
 
     @Deactivate
     public void deactivate() {
+        if (executor != null) {
+            executor.shutdownNow();
+        }
         linkService.removeListener(linkListener);
         domainController.removeMessageListener(oxpMsgListener);
         domainController.removeOxpSuperListener(oxpSuperListener);
@@ -137,6 +149,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
     }
 
     private void addOrUpdateVport(ConnectPoint edgeConnectPoint) {
+        checkNotNull(edgeConnectPoint);
         if (!vportMap.containsKey(edgeConnectPoint)) {
             // 添加Vport
             // 1.分配Vport号,并记录<ConnectPoint, vportNo>
@@ -387,6 +400,15 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                         .build();
                 domainController.write(oxpSbp);
                 context.block();
+            }
+        }
+    }
+
+    class TopoUpdateTask implements Runnable {
+        @Override
+        public void run() {
+            for (ConnectPoint vportConnectPoint : vportMap.keySet()) {
+                addOrUpdateVport(vportConnectPoint);
             }
         }
     }

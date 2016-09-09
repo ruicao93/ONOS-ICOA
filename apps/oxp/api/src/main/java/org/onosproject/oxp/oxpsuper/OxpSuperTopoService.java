@@ -28,6 +28,8 @@ public interface OxpSuperTopoService {
 
     OXPVportDesc getVportDesc(DeviceId deviceId, PortNumber portNumber);
 
+    long getVportCapability(PortNumber portNumber);
+
     Set<OXPHost> getHostsByIp(IpAddress ipAddress);
 
     DeviceId getHostLocation(HostId hostId);

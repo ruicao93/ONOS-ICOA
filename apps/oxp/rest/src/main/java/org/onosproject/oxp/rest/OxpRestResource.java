@@ -98,6 +98,7 @@ public class OxpRestResource extends AbstractWebResource {
                 ObjectNode vportNode = mapper().createObjectNode();
                 vportNode.put("vportNum", vport.toLong());
                 vportNode.put("domainId", domain.getDomainId().getLong());
+                vportNode.put("capability", get(OxpSuperTopoService.class).getVportCapability(vport));
                 vports.add(vportNode);
             }
         }
