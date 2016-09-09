@@ -21,10 +21,9 @@ import org.onosproject.net.link.LinkService;
 import org.onosproject.net.packet.*;
 import org.onosproject.net.topology.PathService;
 import org.onosproject.net.topology.TopologyService;
+import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.domain.OxpDomainController;
 import org.onosproject.oxp.domain.OxpDomainTopoService;
-import org.onosproject.oxp.OxpSuperMessageListener;
-import org.onosproject.oxp.exceptions.OXPParseError;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.OXPSbpData;
 import org.onosproject.oxp.types.OXPVport;
@@ -41,12 +40,7 @@ import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
 
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.onlab.util.Tools.groupedThreads;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
