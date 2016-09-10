@@ -147,16 +147,14 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         //TODO
     }
 
-    private void addOrUpdateVport(ConnectPoint edgeConnectPoint,OXPVportState vportState, OXPVportReason reason) {
+    private void addOrUpdateVport(ConnectPoint edgeConnectPoint, OXPVportState vportState, OXPVportReason reason) {
         checkNotNull(edgeConnectPoint);
-        boolean isNewVport = false;
-        if (!vportMap.containsKey(edgeConnectPoint)) {
+        if (reason.equals(OXPVportReason.ADD) && !vportMap.containsKey(edgeConnectPoint)) {
             // 添加Vport
             // 1.分配Vport号,并记录<ConnectPoint, vportNo>
             long allocatedVportNum = vportNo.getAndIncrement();
             vportMap.put(edgeConnectPoint, portNumber(allocatedVportNum));
             vportCapabilityMap.put(portNumber(allocatedVportNum), DEFAULT_VPORT_CAP);
-            isNewVport = true;
         }
         // 1.获取对应的vportNum
         PortNumber vportNum = vportMap.get(edgeConnectPoint);
@@ -174,52 +172,44 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                 .build();
         // 3.发送vportStatus消息到Super
         domainController.write(msg);
-        // 4.计算internalLinks
-        List<OXPInternalLink> internalLinks = new ArrayList<>();
-
-        // 4.1添加Link: <vport,vport>,capability为默认值
-        // Mao: real port speed in bytes per second
-        //FIXME - Here,assume vport is in one "Device", not a "Host", so we can use DeviceId() directly.
-        //FIXME - If vport is on one "Host", it doesn't accord with OXP logic.
-        //TODO - Part 4.1 is not debuged and tested.
-        assert edgeConnectPoint.elementId() instanceof DeviceId;
-
-        Port borderPort = deviceService.getPort(edgeConnectPoint.deviceId(),edgeConnectPoint.port());
-        long vportMaxSpeed = borderPort.portSpeed() * 1000000;//data source: Mbps
-        long vportCurSpeed = portStatisticsService.load(edgeConnectPoint).rate() * 8;//data source: Bps
-        internalLinks.add(OXPInternalLink.of(vport, vport, vportMaxSpeed - vportCurSpeed, OXPVersion.OXP_10));
-
-        // 4.2 check intra link
-        //TODO - capability of intra link is holding...
-        for (ConnectPoint connectPoint : vportMap.keySet()) {
-            PortNumber existVport = vportMap.get(connectPoint);
-            if (existVport.toLong() == vport.getPortNumber())
-                continue;
-            long existVportCurSpeed = portStatisticsService.load(connectPoint).rate() * 8;
-            long linkSpeed = vportCurSpeed < existVportCurSpeed ? vportCurSpeed : existVportCurSpeed;
-            if (!pathService.getPaths(edgeConnectPoint.deviceId(), connectPoint.deviceId()).isEmpty()) {
-                OXPVport existOxpVport = OXPVport.ofShort((short) existVport.toLong());
-                //internalLinks = new ArrayList<>();
-                internalLinks.add(OXPInternalLink.of(vport, existOxpVport,
-                        linkSpeed, OXPVersion.OXP_10));
-            }
-            if (!pathService.getPaths(connectPoint.deviceId(), edgeConnectPoint.deviceId()).isEmpty()) {
-                OXPVport existOxpVport = OXPVport.ofShort((short) existVport.toLong());
-                //internalLinks = new ArrayList<>();
-                internalLinks.add(OXPInternalLink.of(existOxpVport, vport, linkSpeed, OXPVersion.OXP_10));
-            }
-        }
-        if (internalLinks.size() == 0) {
+        if (reason.equals(OXPVportReason.DELETE)) {
+            vportMap.remove(edgeConnectPoint);
             return;
         }
+        updateTopo();
+    }
 
-        // 5.将internalLinks发送至Super
+    private void updateTopo() {
+        List<OXPInternalLink> internalLinks = new ArrayList<>();
+        Set<PortNumber> hasHandledVport = new HashSet<>();
+        for (ConnectPoint srcConnectPoint : vportMap.keySet()) {
+            PortNumber srcVport = vportMap.get(srcConnectPoint);
+            OXPVport srcVportDesc = OXPVport.ofShort((short) srcVport.toLong());
+            long srcVportCurSpeed = portStatisticsService.load(srcConnectPoint).rate() * 8;//data source: Bps
+            for (ConnectPoint dstConnectPoint : vportMap.keySet()) {
+                PortNumber dstVport = vportMap.get(dstConnectPoint);
+                OXPVport dstVportDesc = OXPVport.ofShort((short) dstVport.toLong());
+                long dstVportCurSpeed = portStatisticsService.load(dstConnectPoint).rate() * 8;//data source: Bps
+                if (srcVport.equals(dstVport) && !hasHandledVport.contains(srcVport)) {
+                    hasHandledVport.add(srcVport);
+                    internalLinks.add(OXPInternalLink.of(srcVportDesc, dstVportDesc, srcVportCurSpeed - dstVportCurSpeed, OXPVersion.OXP_10));
+                } else {
+                    long linkSpeed = srcVportCurSpeed < dstVportCurSpeed ? srcVportCurSpeed : dstVportCurSpeed;
+                    if (!pathService.getPaths(srcConnectPoint.deviceId(), dstConnectPoint.deviceId()).isEmpty()) {
+                        internalLinks.add(OXPInternalLink.of(srcVportDesc, dstVportDesc,
+                                linkSpeed, OXPVersion.OXP_10));
+                    }
+                }
+            }
+        }
+        // 将internalLinks发送至Super
         OXPTopologyReply topologyReply = oxpFactory
                 .buildTopologyReply()
                 .setInternalLink(internalLinks)
                 .build();
         domainController.write(topologyReply);
     }
+
 
     public PortNumber getLogicalVportNum(ConnectPoint connectPoint) {
         return vportMap.containsKey(connectPoint) ? vportMap.get(connectPoint) : PortNumber.portNumber(OXPVport.LOCAL.getPortNumber());
@@ -408,14 +398,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
     class TopoUpdateTask implements Runnable {
         @Override
         public void run() {
-            for (ConnectPoint vportConnectPoint : vportMap.keySet()) {
-                Port port  = deviceService.getPort(vportConnectPoint.deviceId(), vportConnectPoint.port());
-                if (null == port || !port.isEnabled()) {
-                    addOrUpdateVport(vportConnectPoint, OXPVportState.BLOCKED, OXPVportReason.DELETE);
-                } else {
-                    addOrUpdateVport(vportConnectPoint, OXPVportState.LIVE, OXPVportReason.MODIFY);
-                }
-            }
+            updateTopo();
         }
     }
 }

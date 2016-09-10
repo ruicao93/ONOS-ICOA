@@ -22,9 +22,11 @@ public interface OxpSuperTopoService {
 
     List<Link> getInterlinks();
 
+    long getInterLinkCapability(Link link);
+
     List<Link> getIntraLinks(DeviceId deviceId);
 
-    OXPInternalLink getInterLinkDesc(Link link);
+    OXPInternalLink getIntraLinkDesc(Link link);
 
     OXPVportDesc getVportDesc(DeviceId deviceId, PortNumber portNumber);
 

@@ -106,6 +106,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
 
     @Override
     public List<PortNumber> getVports(DeviceId deviceId) {
+        if (!vportMap.containsKey(deviceId)) return Collections.emptyList();
         return ImmutableList.copyOf(vportMap.get(deviceId));
     }
 
@@ -126,7 +127,15 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     }
 
     @Override
-    public OXPInternalLink getInterLinkDesc(Link link) {
+    public long getInterLinkCapability(Link link) {
+        checkNotNull(link);
+        long srcVportCapability = getVportCapability(link.src().port());
+        long dstVportCapability = getVportCapability(link.dst().port());
+        return srcVportCapability < dstVportCapability ? srcVportCapability : dstVportCapability;
+    }
+
+    @Override
+    public OXPInternalLink getIntraLinkDesc(Link link) {
         return internalLinkDescMap.get(link);
     }
 

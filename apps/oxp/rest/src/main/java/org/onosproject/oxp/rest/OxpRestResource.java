@@ -64,6 +64,7 @@ public class OxpRestResource extends AbstractWebResource {
             linkNode.put("dstDomain", get(OxpSuperController.class).getOxpDomain(link.dst().deviceId()).getDomainId().getLong());
             linkNode.put("srcVport", link.src().port().toLong());
             linkNode.put("dstVport", link.dst().port().toLong());
+            linkNode.put("capability", get(OxpSuperTopoService.class).getInterLinkCapability(link));
             array.add(linkNode);
         }
         return ok(root).build();
@@ -94,13 +95,16 @@ public class OxpRestResource extends AbstractWebResource {
         long id = 1L;
         ArrayNode vports = root.putArray("vports");
         for (OXPDomain domain : get(OxpSuperController.class).getOxpDomains()) {
+            ObjectNode domainNode = mapper().createObjectNode();
+            domainNode.put("domainId", domain.getDomainId().getLong());
+            ArrayNode vportArray = domainNode.putArray("vports");
             for (PortNumber vport : get(OxpSuperTopoService.class).getVports(domain.getDeviceId())) {
                 ObjectNode vportNode = mapper().createObjectNode();
                 vportNode.put("vportNum", vport.toLong());
-                vportNode.put("domainId", domain.getDomainId().getLong());
                 vportNode.put("capability", get(OxpSuperTopoService.class).getVportCapability(vport));
-                vports.add(vportNode);
+                vportArray.add(vportNode);
             }
+            vports.add(domainNode);
         }
         return ok(root).build();
     }
