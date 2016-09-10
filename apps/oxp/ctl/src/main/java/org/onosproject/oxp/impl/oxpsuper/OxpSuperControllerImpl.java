@@ -213,6 +213,11 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     }
 
     @Override
+    public long getDomainCount() {
+        return domainMap.size();
+    }
+
+    @Override
     public OFMessage parseOfMessage(OXPSbp sbp) {
         ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
         sbp.getSbpData().writeTo(buffer);
@@ -227,8 +232,7 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     }
     @Override
     public Ethernet parseEthernet(byte data[]) {
-        ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
-        buffer.writeBytes(data);
+        ChannelBuffer buffer = ChannelBuffers.copiedBuffer(data);
         Ethernet eth = null;
         try {
             eth = Ethernet.deserializer().deserialize(buffer.array(), 0, buffer.readableBytes());

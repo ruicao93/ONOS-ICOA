@@ -1,6 +1,7 @@
 package org.onosproject.oxp.impl.oxpsuper;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.apache.felix.scr.annotations.*;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -114,13 +115,39 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     }
 
     @Override
+    public long getVportCapability(PortNumber portNumber) {
+        if (!vportCapabilityMap.containsKey(portNumber)) return  0;
+        return vportCapabilityMap.get(portNumber);
+    }
+
+    @Override
     public List<Link> getInterlinks() {
         return ImmutableList.copyOf(interLinkSet);
     }
 
     @Override
+    public OXPInternalLink getInterLinkDesc(Link link) {
+        return internalLinkDescMap.get(link);
+    }
+
+    @Override
     public List<Link> getIntraLinks(DeviceId deviceId) {
         return ImmutableList.copyOf(internalLinksMap.get(deviceId));
+    }
+
+
+    @Override
+    public long getInterLinkCount() {
+        return getInterlinks().size();
+    }
+
+    @Override
+    public long getHostCount() {
+        long count = 0L;
+        for (OXPDomain domain : superController.getOxpDomains()) {
+            count += hostMap.get(domain.getDeviceId()) == null ? 0 : hostMap.get(domain.getDeviceId()).size();
+        }
+        return count;
     }
 
     @Override
@@ -135,6 +162,15 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
             }
         }
         return result;
+    }
+
+    @Override
+    public Set<OXPHost> getHostsByDevice(DeviceId deviceId) {
+        Map<HostId, OXPHost> hostsMap = hostMap.get(deviceId);
+        if (null != hostsMap) {
+            return ImmutableSet.copyOf(hostsMap.values());
+        }
+        return Collections.emptySet();
     }
 
     @Override

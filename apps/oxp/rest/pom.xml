@@ -25,6 +25,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-oxp-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.glassfish.jersey.containers</groupId>
             <artifactId>jersey-container-servlet-core</artifactId>
             <!--<version>2.22.2</version>-->

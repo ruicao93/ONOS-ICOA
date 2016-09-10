@@ -7,6 +7,7 @@ import org.onosproject.net.*;
 import org.onosproject.net.device.DeviceInterfaceDescription;
 import org.onosproject.oxp.protocol.OXPVportDesc;
 import org.onosproject.oxp.types.OXPHost;
+import org.onosproject.oxp.types.OXPInternalLink;
 import org.onosproject.oxp.types.OXPVport;
 
 import java.util.List;
@@ -23,11 +24,17 @@ public interface OxpSuperTopoService {
 
     List<Link> getIntraLinks(DeviceId deviceId);
 
+    OXPInternalLink getInterLinkDesc(Link link);
+
     OXPVportDesc getVportDesc(DeviceId deviceId, PortNumber portNumber);
+
+    long getVportCapability(PortNumber portNumber);
 
     Set<OXPHost> getHostsByIp(IpAddress ipAddress);
 
     DeviceId getHostLocation(HostId hostId);
+
+    Set<OXPHost> getHostsByDevice(DeviceId deviceId);
 
 
     Set<Path> getPaths(DeviceId src, DeviceId dst);
@@ -36,5 +43,9 @@ public interface OxpSuperTopoService {
 
     // just one best Path is returned now.
     Set<Path> getLoadBalancePaths(DeviceId src, DeviceId dst);
+
+    long getInterLinkCount();
+
+    long getHostCount();
 
 }

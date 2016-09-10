@@ -48,14 +48,16 @@ public class OXPInternalLink implements Writeable, PrimitiveSinkable {
     public void putTo(PrimitiveSink sink) {
         srcVport.putTo(sink);
         dstVport.putTo(sink);
-        sink.putBytes(String.format("%06x", capability).getBytes());
+        //sink.putBytes(String.format("%06x", capability).getBytes());
+        sink.putLong(capability);
     }
 
     @Override
     public void writeTo(ChannelBuffer bb) {
         srcVport.writeTo(bb);
         dstVport.writeTo(bb);
-        bb.writeBytes(String.format("%06x", capability).getBytes());
+        //bb.writeBytes(String.format("%06x", capability).getBytes());
+        bb.writeLong(capability);
     }
 
     @Override

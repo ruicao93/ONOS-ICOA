@@ -21,9 +21,9 @@ import org.onosproject.net.link.LinkService;
 import org.onosproject.net.packet.*;
 import org.onosproject.net.topology.PathService;
 import org.onosproject.net.topology.TopologyService;
+import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.domain.OxpDomainController;
 import org.onosproject.oxp.domain.OxpDomainTopoService;
-import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.types.OXPSbpData;
 import org.onosproject.oxp.types.OXPVport;
@@ -40,12 +40,7 @@ import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
 
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.onlab.util.Tools.groupedThreads;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
@@ -350,12 +345,13 @@ public class OxpDomainRouting {
                     .setCookie(U64.ofRaw(context.inPacket().cookie().get()))
                     .setMatch(mBuilder.build())
                     .setData(frame)
+                    //.setTotalLen(frame.length)
                     .build();
             ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
             ofPacketInForSuper.writeTo(buffer);
-            byte[] data = buffer.array();
-            //byte[] data = new byte[buffer.readableBytes()];
-            //buffer.readBytes(data, 0, buffer.readableBytes());
+            //byte[] data = buffer.array();
+            byte[] data = new byte[buffer.readableBytes()];
+            buffer.readBytes(data, 0, buffer.readableBytes());
             Set<OXPSbpFlags> oxpSbpflgs = new HashSet<>();
             oxpSbpflgs.add(OXPSbpFlags.DATA_EXIST);
             OXPSbp oxpSbp = oxpFactory.buildSbp()
