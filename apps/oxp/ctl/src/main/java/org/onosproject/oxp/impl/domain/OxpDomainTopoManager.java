@@ -8,10 +8,7 @@ import org.onlab.packet.ONOSLLDP;
 import org.onlab.packet.OXPLLDP;
 import org.onosproject.cluster.ClusterMetadataService;
 import org.onosproject.incubator.net.PortStatisticsService;
-import org.onosproject.net.ConnectPoint;
-import org.onosproject.net.DeviceId;
-import org.onosproject.net.Port;
-import org.onosproject.net.PortNumber;
+import org.onosproject.net.*;
 import org.onosproject.net.device.DeviceService;
 import org.onosproject.net.host.HostService;
 import org.onosproject.net.link.LinkEvent;
@@ -99,6 +96,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
     private AtomicLong vportNo = new AtomicLong(1);
     private Map<ConnectPoint, PortNumber> vportMap = new HashMap<>();
     private Map<PortNumber, Long> vportCapabilityMap = new HashMap<>();
+    private Set<Link> intraLinkSet = new HashSet<>();
 
     private ScheduledExecutorService executor;
 
@@ -140,6 +138,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         packetService.removeProcessor(oxpLlapPacketProcessor);
         vportMap.clear();
         vportCapabilityMap.clear();
+        intraLinkSet.clear();
         log.info("Stoped");
     }
 
@@ -148,14 +147,16 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         //TODO
     }
 
-    private void addOrUpdateVport(ConnectPoint edgeConnectPoint) {
+    private void addOrUpdateVport(ConnectPoint edgeConnectPoint,OXPVportState vportState, OXPVportReason reason) {
         checkNotNull(edgeConnectPoint);
+        boolean isNewVport = false;
         if (!vportMap.containsKey(edgeConnectPoint)) {
             // 添加Vport
             // 1.分配Vport号,并记录<ConnectPoint, vportNo>
             long allocatedVportNum = vportNo.getAndIncrement();
             vportMap.put(edgeConnectPoint, portNumber(allocatedVportNum));
             vportCapabilityMap.put(portNumber(allocatedVportNum), DEFAULT_VPORT_CAP);
+            isNewVport = true;
         }
         // 1.获取对应的vportNum
         PortNumber vportNum = vportMap.get(edgeConnectPoint);
@@ -163,12 +164,12 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         //    Reason:Add, State:Live
         OXPVport vport = OXPVport.ofShort((short) vportNum.toLong());
         Set<OXPVportState> state = new HashSet<>();
-        state.add(OXPVportState.LIVE);
+        state.add(vportState);
         OXPVportDesc vportDesc = new OXPVportDescVer10.Builder().setPortNo(vport)
                 .setState(state)
                 .build();
         OXPVportStatus msg = oxpFactory.buildVportStatus()
-                .setReason(OXPVportReason.ADD)
+                .setReason(reason)
                 .setVportDesc(vportDesc)
                 .build();
         // 3.发送vportStatus消息到Super
@@ -342,7 +343,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
             // 让对面端口被发现为Vport,并且上报lldp,供邻间链路发现
             if (LLDP_VPORT_LOCAL == oxplldp.getVportNum()) {
                 // allocate vport_no and send msg to super
-                addOrUpdateVport(edgeConnectPoint);
+                addOrUpdateVport(edgeConnectPoint, OXPVportState.LIVE, OXPVportReason.ADD);
                 OXPLLDP replyOxplldp = OXPLLDP.oxpLLDP(Long.valueOf(dstDeviceId.toString().substring("of:".length())),
                           Long.valueOf(dstPort.toLong()).intValue(),
                         domainController.getDomainId().getLong(),
@@ -360,7 +361,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
             }else {
                 //若lldp包携带对端vport号,则需将此lldp上报Super,以使Super可以发现邻间链路
                 if (null == getVportNum(edgeConnectPoint)) {
-                    addOrUpdateVport(edgeConnectPoint);
+                    addOrUpdateVport(edgeConnectPoint, OXPVportState.LIVE, OXPVportReason.ADD);
                 }
                 //为隐蔽domain域内信息,重写lldp,将portNo改为VportNo
                 // Send lldp to Super throuth SBP message
@@ -408,7 +409,12 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         @Override
         public void run() {
             for (ConnectPoint vportConnectPoint : vportMap.keySet()) {
-                addOrUpdateVport(vportConnectPoint);
+                Port port  = deviceService.getPort(vportConnectPoint.deviceId(), vportConnectPoint.port());
+                if (null == port || !port.isEnabled()) {
+                    addOrUpdateVport(vportConnectPoint, OXPVportState.BLOCKED, OXPVportReason.DELETE);
+                } else {
+                    addOrUpdateVport(vportConnectPoint, OXPVportState.LIVE, OXPVportReason.MODIFY);
+                }
             }
         }
     }
