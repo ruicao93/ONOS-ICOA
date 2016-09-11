@@ -6,29 +6,31 @@ package org.onosproject.oxp.protocol;
  * OXP type enum
  */
 public enum OXPType {
-    OXPT_HELLO(0),
-    OXPT_ERROR(1),
-    OXPT_ECHO_REQUEST(2),
-    OXPT_ECHO_REPLY(3),
-    OXPT_EXPERIMENTER(4),
-    OXPT_FEATURES_REQUEST(5),
-    OXPT_REATURES_REPLY(6),
-    OXPT_GET_CONFIG_REQUEST(7),
-    OXPT_GET_CONFIG_REPLY(8),
-    OXPT_SET_CONFIG(9),
-    OXPT_TOPO_REQUEST(10),
-    OXPT_TOPO_REPLY(11),
-    OXPT_HOST_REQUEST(12),
-    OXPT_HOST_REPLY(13),
-    OXPT_HOST_UPDATE(14),
-    OXPT_VPORT_STATUS(15),
-    OXPT_SBP(16),
-    OXPT_VENDER(17);
+    OXPT_HELLO(0, "Hello"),
+    OXPT_ERROR(1, "Error"),
+    OXPT_ECHO_REQUEST(2,"EchoRequest"),
+    OXPT_ECHO_REPLY(3, "EchoReply"),
+    OXPT_EXPERIMENTER(4, "Experiment"),
+    OXPT_FEATURES_REQUEST(5, "FeaturesRequest"),
+    OXPT_REATURES_REPLY(6, "ReqturesReply"),
+    OXPT_GET_CONFIG_REQUEST(7, "GetConfigRequest"),
+    OXPT_GET_CONFIG_REPLY(8, "GetConfigReply"),
+    OXPT_SET_CONFIG(9, "SetConfig"),
+    OXPT_TOPO_REQUEST(10, "TopoRequest"),
+    OXPT_TOPO_REPLY(11, "TopoReply"),
+    OXPT_HOST_REQUEST(12, "HostRequest"),
+    OXPT_HOST_REPLY(13, "HostReply"),
+    OXPT_HOST_UPDATE(14, "HostUpdate"),
+    OXPT_VPORT_STATUS(15, "VportStatus"),
+    OXPT_SBP(16, "SBP"),
+    OXPT_VENDER(17, "VENDOR");
 
     private int value;
+    private String name;
 
-    OXPType(int value) {
+    OXPType(int value, String name) {
         this.value = value;
+        this.name = name;
     }
 
     public static OXPType valaueOf(int value) {
@@ -76,5 +78,9 @@ public enum OXPType {
 
     public int value() {
         return value;
+    }
+
+    public String getName() {
+        return name;
     }
 }

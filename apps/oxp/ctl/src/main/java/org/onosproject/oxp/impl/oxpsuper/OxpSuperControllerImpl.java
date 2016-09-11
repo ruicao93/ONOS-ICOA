@@ -1,5 +1,6 @@
 package org.onosproject.oxp.impl.oxpsuper;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.felix.scr.annotations.*;
 import org.jboss.netty.buffer.ChannelBuffer;
@@ -16,15 +17,14 @@ import org.onosproject.net.provider.ProviderId;
 import org.onosproject.net.topology.OxpSuperConfig;
 import org.onosproject.oxp.OXPDomain;
 import org.onosproject.oxp.OxpDomainMessageListener;
-import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.oxpsuper.OxpDomainListener;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.protocol.OXPMessage;
 import org.onosproject.oxp.protocol.OXPSbp;
+import org.onosproject.oxp.protocol.OXPType;
 import org.onosproject.oxp.protocol.OXPVersion;
 import org.projectfloodlight.openflow.exceptions.OFParseError;
 import org.projectfloodlight.openflow.protocol.OFFactories;
-import org.projectfloodlight.openflow.protocol.OFFactory;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,11 +49,14 @@ public class OxpSuperControllerImpl implements OxpSuperController {
 
     private Map<DeviceId, OXPDomain> domainMap;
     private Map<DeviceId, Device> deviceMap;
+    private Map<OXPType, Long> msgCountStatis = new HashMap<>();
+    private Map<OXPType, Long> msgLengthStatis = new HashMap<>();
+
+    private OxpDomainMessageListener msgStatisListener = new InternalDomainMsgListener();
 
     private SuperConnector connector = new SuperConnector(this);
     private Set<OxpDomainMessageListener> messageListeners = new CopyOnWriteArraySet<>();
     private Set<OxpDomainListener> oxpDomainListeners = new CopyOnWriteArraySet<>();
-
 
     protected String oxpSuperIp = "127.0.0.1";
     protected int oxpSuperPort = 6688;
@@ -80,6 +83,7 @@ public class OxpSuperControllerImpl implements OxpSuperController {
         initSuperCfg();
         domainMap = new HashMap<>();
         deviceMap = new HashMap<>();
+        this.addMessageListener(msgStatisListener);
         connector.start();
         log.info("OxpSuperController started...");
     }
@@ -89,6 +93,8 @@ public class OxpSuperControllerImpl implements OxpSuperController {
         connector.stop();
         domainMap.clear();
         deviceMap.clear();
+        msgCountStatis.clear();
+        msgLengthStatis.clear();
         log.info("OxpSuperController stoped...");
     }
 
@@ -242,4 +248,46 @@ public class OxpSuperControllerImpl implements OxpSuperController {
         return eth;
     }
 
+    @Override
+    public Map<OXPType, Long> getMsgCountStatis() {
+        return ImmutableMap.copyOf(msgCountStatis);
+    }
+
+    @Override
+    public Map<OXPType, Long> getMsgLengthStatis() {
+        return ImmutableMap.copyOf(msgLengthStatis);
+    }
+
+    synchronized private void updateMsgStatis(OXPType type, long newLength) {
+        Long msgCount = null;
+        Long msgLength = null;
+        msgCount = msgCountStatis.get(type);
+        if (null == msgCount) {
+            msgCount = Long.valueOf(0);
+        }
+        msgCountStatis.put(type, ++msgCount);
+        msgLength = msgLengthStatis.get(type);
+        if (null == msgLength) {
+            msgLength = Long.valueOf(0);
+        }
+        msgLengthStatis.put(type, msgLength + newLength);
+    }
+
+    class InternalDomainMsgListener implements OxpDomainMessageListener {
+        @Override
+        public void handleIncomingMessage(DeviceId deviceId, OXPMessage msg) {
+            ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
+            msg.writeTo(buffer);
+            updateMsgStatis(msg.getType(), buffer.readableBytes());
+        }
+
+        @Override
+        public void handleOutGoingMessage(DeviceId deviceId, List<OXPMessage> msgs) {
+            for (OXPMessage msg : msgs) {
+                ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
+                msg.writeTo(buffer);
+                updateMsgStatis(msg.getType(), buffer.readableBytes());
+            }
+        }
+    }
 }

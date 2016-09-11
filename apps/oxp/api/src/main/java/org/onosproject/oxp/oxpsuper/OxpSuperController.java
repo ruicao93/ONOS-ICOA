@@ -10,6 +10,7 @@ import org.onosproject.oxp.protocol.*;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -49,4 +50,7 @@ public interface OxpSuperController {
 
     OFMessage parseOfMessage(OXPSbp sbp);
     Ethernet parseEthernet(byte data[]);
+
+    Map<OXPType, Long> getMsgCountStatis();
+    Map<OXPType, Long> getMsgLengthStatis();
 }

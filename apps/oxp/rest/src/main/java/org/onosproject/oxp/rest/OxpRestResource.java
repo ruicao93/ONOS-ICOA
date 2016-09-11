@@ -7,6 +7,7 @@ import org.onosproject.net.PortNumber;
 import org.onosproject.oxp.OXPDomain;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.oxpsuper.OxpSuperTopoService;
+import org.onosproject.oxp.protocol.OXPType;
 import org.onosproject.oxp.types.OXPHost;
 import org.onosproject.oxp.types.OXPVport;
 import org.onosproject.rest.AbstractWebResource;
@@ -14,7 +15,9 @@ import org.onosproject.rest.AbstractWebResource;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * All of OXP API.
@@ -109,6 +112,22 @@ public class OxpRestResource extends AbstractWebResource {
         return ok(root).build();
     }
 
-
+    @GET
+    @Path("/msgStatis")
+    public Response msgStatis() {
+        ObjectNode root = mapper().createObjectNode();
+        long id = 1L;
+        ArrayNode array = root.putArray("msgStatis");
+        Map<OXPType, Long> msgCountStatis = get(OxpSuperController.class).getMsgCountStatis();
+        Map<OXPType, Long> msgLengthStatis = get(OxpSuperController.class).getMsgLengthStatis();
+        for (OXPType type : msgCountStatis.keySet()) {
+            ObjectNode typeNode = mapper().createObjectNode();
+            typeNode.put("type", type.getName());
+            typeNode.put("count", msgCountStatis.get(type));
+            typeNode.put("length", msgLengthStatis.get(type));
+            array.add(typeNode);
+        }
+        return ok(root).build();
+    }
 
 }
