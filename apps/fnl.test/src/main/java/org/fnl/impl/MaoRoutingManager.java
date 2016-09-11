@@ -98,10 +98,10 @@ public class MaoRoutingManager implements MaoRoutingService {
                 appId);
 
         intentMap = new HashMap<>();
-//        intentService.getIntents().forEach(intent -> {
-//            intentService.withdraw(intent);
-//            intentService.purge(intent);
-//        });
+        intentService.getIntents().forEach(intent -> {
+            intentService.withdraw(intent);
+            intentService.purge(intent);
+        });
 
 //        intentService.getIntents().forEach(intent -> {
 //            intentService.withdraw(intent);
@@ -137,7 +137,7 @@ public class MaoRoutingManager implements MaoRoutingService {
                 PacketPriority.REACTIVE,
                 appId);
 
-        intentMap.values().forEach(intent->{
+        intentMap.values().forEach(intent -> {
             intentService.withdraw(intent);
             intentService.purge(intent);
         });
@@ -176,46 +176,46 @@ public class MaoRoutingManager implements MaoRoutingService {
 
                 Host srcHost = hostService.getHost(HostId.hostId(pkt.getSourceMAC()));
                 Host dstHost = hostService.getHost(HostId.hostId(pkt.getDestinationMAC()));
-                if(srcHost==null || dstHost==null){
+                if (srcHost == null || dstHost == null) {
                     log.warn("Routing but Host is null, not found");
                     return;
                 }
 
 //                try {
 
-                    DeviceId srcDevice = srcHost.location().deviceId();
-                    DeviceId dstDevice = dstHost.location().deviceId();
+                DeviceId srcDevice = srcHost.location().deviceId();
+                DeviceId dstDevice = dstHost.location().deviceId();
 
-                    Set<Path> qingdao = getLoadBalancePaths(srcDevice, dstDevice);
-                    if (qingdao.isEmpty()) {
-                        log.warn("Mao: qingdao is Empty !!!");
-                        return;
-                    }
+                Set<Path> qingdao = getLoadBalancePaths(srcDevice, dstDevice);
+                if (qingdao.isEmpty()) {
+                    log.warn("Mao: qingdao is Empty !!!");
+                    return;
+                }
 
-                    IPv4 ipPkt = (IPv4) pkt.getPayload();
-                    TrafficSelector selector = DefaultTrafficSelector.builder()
-                            .matchEthType(Ethernet.TYPE_IPV4)
-                            .matchIPSrc(IpPrefix.valueOf(ipPkt.getSourceAddress(), 32))
-                            .matchIPDst(IpPrefix.valueOf(ipPkt.getDestinationAddress(), 32))
-                            .build();
-                    if (intentMap.containsKey(selector.criteria())) {
-                        context.block();
-                        return;
-                    }
+                IPv4 ipPkt = (IPv4) pkt.getPayload();
+                TrafficSelector selector = DefaultTrafficSelector.builder()
+                        .matchEthType(Ethernet.TYPE_IPV4)
+                        .matchIPSrc(IpPrefix.valueOf(ipPkt.getSourceAddress(), 32))
+                        .matchIPDst(IpPrefix.valueOf(ipPkt.getDestinationAddress(), 32))
+                        .build();
+                if (intentMap.containsKey(selector.criteria())) {
+                    context.block();
+                    return;
+                }
 
 
-                    Path wholePath = getEdgeToEdgePath(
-                            getEdgeLink(srcHost, true),
-                            getEdgeLink(dstHost, false),
-                            qingdao.iterator().next());
+                Path wholePath = getEdgeToEdgePath(
+                        getEdgeLink(srcHost, true),
+                        getEdgeLink(dstHost, false),
+                        qingdao.iterator().next());
 
-                    PathIntent pathIntent = PathIntent.builder()
-                            .path(wholePath)
-                            .appId(appId)
-                            .priority(63355)
-                            .selector(selector)
-                            .treatment(DefaultTrafficTreatment.emptyTreatment())
-                            .build();
+                PathIntent pathIntent = PathIntent.builder()
+                        .path(wholePath)
+                        .appId(appId)
+                        .priority(63355)
+                        .selector(selector)
+                        .treatment(DefaultTrafficTreatment.emptyTreatment())
+                        .build();
 
 //                HostToHostIntent hostToHostIntent = HostToHostIntent.builder()
 //                        .appId(appId)
@@ -226,8 +226,8 @@ public class MaoRoutingManager implements MaoRoutingService {
 //                        .priority(33333)
 //                        .build();
 
-                    intentService.submit(pathIntent);
-                    intentMap.put(selector.criteria(), pathIntent);
+                intentService.submit(pathIntent);
+                intentMap.put(selector.criteria(), pathIntent);
 //                }
 //                catch(Exception e){
 //                    int a= 1;
@@ -249,12 +249,11 @@ public class MaoRoutingManager implements MaoRoutingService {
 
     private Set<Path> getLoadBalancePaths(DeviceId src, DeviceId dst) {
         Topology currentTopo = topologyService.currentTopology();
-        try {
-            return topologyService.getPaths(currentTopo, src, dst, bandwidthLinkWeightTool);
-        }catch(Exception e){
-            int a = 1;
-            return ImmutableSet.of();
+        Set<Path> paths = topologyService.getPaths(currentTopo, src, dst, bandwidthLinkWeightTool);
+        if(paths.size()>1){
+            int a = 0;
         }
+        return paths;
     }
 
     // Finds the host edge link if the element ID is a host id of an existing
@@ -304,16 +303,24 @@ public class MaoRoutingManager implements MaoRoutingService {
                 return LINK_WEIGHT_DOWN;
             }
 
-            long linkLineSpeed = getLinkLineSpeed(edge.link());
+            try {
 
-            //FIXME - Bata1: Here, assume the value in the map is the rest bandwidth of inter-demain link
-            long interLinkRestBandwidth = linkLineSpeed - getLinkLoadSpeed(edge.link());
+                long linkLineSpeed = getLinkLineSpeed(edge.link());
 
-            if (interLinkRestBandwidth <= 0) {
-                return LINK_WEIGHT_FULL;
+                //FIXME - Bata1: Here, assume the value in the map is the rest bandwidth of inter-demain link
+                long interLinkRestBandwidth = linkLineSpeed - getLinkLoadSpeed(edge.link());
+
+                if (interLinkRestBandwidth <= 0) {
+                    return LINK_WEIGHT_FULL;
+                }
+
+                double restBandwidthPersent = 100 - interLinkRestBandwidth * 1.0 / linkLineSpeed * 100;
+                return restBandwidthPersent;
+            } catch (Exception e) {
+                int a = 1;
+                return 0;
             }
-            double restBandwidthPersent = 100 - interLinkRestBandwidth * 1.0 / linkLineSpeed * 100 ;
-            return restBandwidthPersent;
+
         }
 
         private long getLinkLineSpeed(Link link) {
@@ -327,6 +334,9 @@ public class MaoRoutingManager implements MaoRoutingService {
 
         private long getLinkLoadSpeed(Link link) {
 
+            if(link == null || link.src() == null || link.dst() == null) {
+                int a = 0;
+            }
             long srcSpeed = getPortLoadSpeed(link.src());
             long dstSpeed = getPortLoadSpeed(link.dst());
 
