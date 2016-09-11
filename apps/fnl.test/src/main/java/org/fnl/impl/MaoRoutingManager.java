@@ -15,6 +15,7 @@
  */
 package org.fnl.impl;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.felix.scr.annotations.*;
@@ -33,6 +34,9 @@ import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
 import org.onosproject.net.flow.TrafficSelector;
 import org.onosproject.net.flow.TrafficTreatment;
+import org.onosproject.net.flow.criteria.Criteria;
+import org.onosproject.net.flow.criteria.Criterion;
+import org.onosproject.net.flow.criteria.IPCriterion;
 import org.onosproject.net.flowobjective.DefaultForwardingObjective;
 import org.onosproject.net.flowobjective.ForwardingObjective;
 import org.onosproject.net.host.HostService;
@@ -51,9 +55,7 @@ import org.onosproject.net.topology.TopologyService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Skeletal ONOS application component.
@@ -81,7 +83,6 @@ public class MaoRoutingManager implements MaoRoutingService {
 
     private ApplicationId appId;
 
-    private Set<Key> keySet;
 
     @Activate
     protected void activate() {
@@ -96,7 +97,16 @@ public class MaoRoutingManager implements MaoRoutingService {
                 PacketPriority.REACTIVE,
                 appId);
 
-        keySet = new HashSet<>();
+        intentMap = new HashMap<>();
+//        intentService.getIntents().forEach(intent -> {
+//            intentService.withdraw(intent);
+//            intentService.purge(intent);
+//        });
+
+//        intentService.getIntents().forEach(intent -> {
+//            intentService.withdraw(intent);
+//            intentService.purge(intent);
+//        });
 //        while(true) {
 //            Iterable<Device> devices = deviceService.getDevices();
 //            for (Device d : devices) {
@@ -125,13 +135,13 @@ public class MaoRoutingManager implements MaoRoutingService {
         packetService.cancelPackets(DefaultTrafficSelector.builder()
                         .matchEthType(Ethernet.TYPE_IPV4).build(),
                 PacketPriority.REACTIVE,
-                coreService.registerApplication("org.fnl.test"));
+                appId);
 
-
-        keySet.forEach(key -> {
-            intentService.withdraw(intentService.getIntent(key));
+        intentMap.values().forEach(intent->{
+            intentService.withdraw(intent);
+            intentService.purge(intent);
         });
-        keySet.clear();
+        intentMap.clear();
     }
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
@@ -139,6 +149,8 @@ public class MaoRoutingManager implements MaoRoutingService {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     private IntentService intentService;
+
+    private Map<Set<Criterion>, Intent> intentMap;
 
     private InternalPacketProcessor packetProcessor = new InternalPacketProcessor();
 
@@ -169,68 +181,62 @@ public class MaoRoutingManager implements MaoRoutingService {
                     return;
                 }
 
+//                try {
 
-                DeviceId srcDevice = srcHost.location().deviceId();
-                DeviceId dstDevice = dstHost.location().deviceId();
+                    DeviceId srcDevice = srcHost.location().deviceId();
+                    DeviceId dstDevice = dstHost.location().deviceId();
 
-                Set<Path> qingdao = getLoadBalancePaths(srcDevice, dstDevice);
-                if (qingdao.isEmpty()) {
-                    log.warn("Mao: qingdao is Empty !!!");
-                    return;
-                }
+                    Set<Path> qingdao = getLoadBalancePaths(srcDevice, dstDevice);
+                    if (qingdao.isEmpty()) {
+                        log.warn("Mao: qingdao is Empty !!!");
+                        return;
+                    }
 
-                IPv4 ipPkt = (IPv4) pkt.getPayload();
-                TrafficSelector selector = DefaultTrafficSelector.builder()
-                        .matchEthType(Ethernet.TYPE_IPV4)
-                        .matchIPSrc(IpPrefix.valueOf(ipPkt.getSourceAddress(), 32))
-                        .matchIPDst(IpPrefix.valueOf(ipPkt.getDestinationAddress(), 32))
-                        .build();
+                    IPv4 ipPkt = (IPv4) pkt.getPayload();
+                    TrafficSelector selector = DefaultTrafficSelector.builder()
+                            .matchEthType(Ethernet.TYPE_IPV4)
+                            .matchIPSrc(IpPrefix.valueOf(ipPkt.getSourceAddress(), 32))
+                            .matchIPDst(IpPrefix.valueOf(ipPkt.getDestinationAddress(), 32))
+                            .build();
+                    if (intentMap.containsKey(selector.criteria())) {
+                        context.block();
+                        return;
+                    }
 
-//                TrafficTreatment treatment = DefaultTrafficTreatment.builder()
-//                        .setOutput(portNumber)
+
+                    Path wholePath = getEdgeToEdgePath(
+                            getEdgeLink(srcHost, true),
+                            getEdgeLink(dstHost, false),
+                            qingdao.iterator().next());
+
+                    PathIntent pathIntent = PathIntent.builder()
+                            .path(wholePath)
+                            .appId(appId)
+                            .priority(63355)
+                            .selector(selector)
+                            .treatment(DefaultTrafficTreatment.emptyTreatment())
+                            .build();
+
+//                HostToHostIntent hostToHostIntent = HostToHostIntent.builder()
+//                        .appId(appId)
+//                        .one(HostId.hostId(pkt.getSourceMAC()))
+//                        .two(HostId.hostId(pkt.getDestinationMAC()))
+//                        .selector(selector)
+//                        .treatment(DefaultTrafficTreatment.emptyTreatment())
+//                        .priority(33333)
 //                        .build();
-                Path wholePath = getEdgeToEdgePath(
-                        getEdgeLink(srcHost, true),
-                        getEdgeLink(dstHost,false),
-                        qingdao.iterator().next());
 
-                PathIntent pathIntent = PathIntent.builder()
-                        .path(wholePath)
-                        .appId(appId)
-                        .priority(63333)
-                        .selector(selector)
-                        .treatment(DefaultTrafficTreatment.emptyTreatment())
-                        .build();
-
-                HostToHostIntent hostToHostIntent = HostToHostIntent.builder()
-                        .appId(appId)
-                        .one(HostId.hostId(pkt.getSourceMAC()))
-                        .two(HostId.hostId(pkt.getDestinationMAC()))
-                        .selector(selector)
-                        .treatment(DefaultTrafficTreatment.emptyTreatment())
-                        .priority(33333)
-                        .build();
-
-                intentService.submit(pathIntent);
-                keySet.add(pathIntent.key());
+                    intentService.submit(pathIntent);
+                    intentMap.put(selector.criteria(), pathIntent);
+//                }
+//                catch(Exception e){
+//                    int a= 1;
+//                }
                 synchronized (lock) {
                     count++;
                 }
 
-                context.treatmentBuilder().drop().build();
-                context.send();
-//                TrafficTreatment treatment = DefaultTrafficTreatment.builder()
-//                        .setOutput(portNumber)
-//                        .build();
-//
-//                ForwardingObjective forwardingObjective = DefaultForwardingObjective.builder()
-//                        .withSelector(selectorBuilder.build())
-//                        .withTreatment(treatment)
-//                        .withPriority(flowPriority)
-//                        .withFlag(ForwardingObjective.Flag.VERSATILE)
-//                        .fromApp(appId)
-//                        .makeTemporary(flowTimeout)
-//                        .add();
+                context.block();
             }
         }
     }
@@ -243,7 +249,12 @@ public class MaoRoutingManager implements MaoRoutingService {
 
     private Set<Path> getLoadBalancePaths(DeviceId src, DeviceId dst) {
         Topology currentTopo = topologyService.currentTopology();
-        return topologyService.getPaths(currentTopo, src, dst, bandwidthLinkWeightTool);
+        try {
+            return topologyService.getPaths(currentTopo, src, dst, bandwidthLinkWeightTool);
+        }catch(Exception e){
+            int a = 1;
+            return ImmutableSet.of();
+        }
     }
 
     // Finds the host edge link if the element ID is a host id of an existing
@@ -302,7 +313,6 @@ public class MaoRoutingManager implements MaoRoutingService {
                 return LINK_WEIGHT_FULL;
             }
             double restBandwidthPersent = 100 - interLinkRestBandwidth * 1.0 / linkLineSpeed * 100 ;
-//            restBandwidthPersent = 1.0;
             return restBandwidthPersent;
         }
 
