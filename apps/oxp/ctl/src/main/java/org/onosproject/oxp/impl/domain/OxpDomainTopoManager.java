@@ -418,23 +418,27 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                         .setData(frame)
                         .setTotalLen(frame.length)
                         .build();
-                ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
-                ofPacketInForSuper.writeTo(buffer);
-                byte[] data = new byte[buffer.readableBytes()];
-                buffer.readBytes(data, 0, buffer.readableBytes());
-//                Set<OXPSbpFlags> sbpFlagses = new HashSet<>();
-//                sbpFlagses.add(OXPSbpFlags.DATA_EXIST);
-//                OXPSbp oxpSbp = oxpFactory.buildSbp()
-//                        .setSbpCmpType(OXPSbpCmpType.NORMAL)
-//                        .setFlags(sbpFlagses)
-//                        .setSbpData(OXPSbpData.read(buffer, buffer.readableBytes(), domainController.getOxpVersion()))
-//                        .build();
-//                domainController.write(oxpSbp);
-                domainController.sendSbpFwdReqMsg(Ip4Address.valueOf("127.0.0.1"), Ip4Address.valueOf("255.255.255.255"),
-                        (int) getLogicalVportNum(edgeConnectPoint).toLong()
-                        , Ip4Address.valueOf("255.255.255.255"),
-                        eth.getEtherType(), (byte) 0, data);
-                context.block();
+                if (domainController.isCompressedMode()) {
+                    domainController.sendSbpFwdReqMsg(Ip4Address.valueOf("127.0.0.1"), Ip4Address.valueOf("255.255.255.255"),
+                            (int) getLogicalVportNum(edgeConnectPoint).toLong()
+                            , Ip4Address.valueOf("255.255.255.255"),
+                            eth.getEtherType(), (byte) 0, eth.serialize());
+                    context.block();
+                } else {
+                    ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
+                    ofPacketInForSuper.writeTo(buffer);
+                    byte[] data = new byte[buffer.readableBytes()];
+                    buffer.readBytes(data, 0, buffer.readableBytes());
+                    Set<OXPSbpFlags> sbpFlagses = new HashSet<>();
+                    sbpFlagses.add(OXPSbpFlags.DATA_EXIST);
+                    OXPSbp oxpSbp = oxpFactory.buildSbp()
+                            .setSbpCmpType(OXPSbpCmpType.NORMAL)
+                            .setFlags(sbpFlagses)
+                            .setSbpData(OXPSbpData.read(buffer, buffer.readableBytes(), domainController.getOxpVersion()))
+                            .build();
+                    domainController.write(oxpSbp);
+                }
+
             }
         }
     }
