@@ -85,7 +85,7 @@ public class MaoRestResource extends AbstractWebResource {
             linkNode.put("Line", linkLineSpeed);
             linkNode.put("Load", linkLoadSpeed);
             linkNode.put("Rest", linkRestSpeed);
-            linkNode.put("Weight", linkRestSpeed / linkLineSpeed * 100);
+            linkNode.put("Weight", 100 - linkRestSpeed * 1.0 / linkLineSpeed * 100);
 
 
 
