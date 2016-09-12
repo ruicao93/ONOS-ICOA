@@ -314,7 +314,7 @@ public class OxpDomainRouting {
                         lastLink.dst().port(), link.src().port());
             }
             if (link.dst().equals(path.dst())) {
-                installForwardRule(link.src().deviceId(), ethType,
+                installForwardRule(link.dst().deviceId(), ethType,
                         srcIp, dstIp,
                         link.dst().port(), dstConnectPoint.port());
             }
