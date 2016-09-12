@@ -409,15 +409,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                 mBuilder.setExact(MatchField.IN_PORT, OFPort.of((int) getVportNum(edgeConnectPoint).toLong()));
                 //byte[] frame = context.inPacket().parsed().serialize();
                 byte[] frame = ethPacket.serialize();
-                OFPacketIn ofPacketInForSuper = ofFactory.buildPacketIn()
-                        .setBufferId(OFBufferId.NO_BUFFER)
-                        .setReason(OFPacketInReason.NO_MATCH)
-                        .setTableId(TableId.ZERO)
-                        .setCookie(U64.ofRaw(context.inPacket().cookie().get()))
-                        .setMatch(mBuilder.build())
-                        .setData(frame)
-                        .setTotalLen(frame.length)
-                        .build();
+
                 if (domainController.isCompressedMode()) {
                     domainController.sendSbpFwdReqMsg(Ip4Address.valueOf("127.0.0.1"), Ip4Address.valueOf("255.255.255.255"),
                             (int) getLogicalVportNum(edgeConnectPoint).toLong()
@@ -425,10 +417,19 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                             eth.getEtherType(), (byte) 0, eth.serialize());
                     context.block();
                 } else {
+                    OFPacketIn ofPacketInForSuper = ofFactory.buildPacketIn()
+                            .setBufferId(OFBufferId.NO_BUFFER)
+                            .setReason(OFPacketInReason.NO_MATCH)
+                            .setTableId(TableId.ZERO)
+                            .setCookie(U64.ofRaw(context.inPacket().cookie().get()))
+                            .setMatch(mBuilder.build())
+                            .setData(frame)
+                            .setTotalLen(frame.length)
+                            .build();
                     ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
                     ofPacketInForSuper.writeTo(buffer);
-                    byte[] data = new byte[buffer.readableBytes()];
-                    buffer.readBytes(data, 0, buffer.readableBytes());
+//                    byte[] data = new byte[buffer.readableBytes()];
+//                    buffer.readBytes(data, 0, buffer.readableBytes());
                     Set<OXPSbpFlags> sbpFlagses = new HashSet<>();
                     sbpFlagses.add(OXPSbpFlags.DATA_EXIST);
                     OXPSbp oxpSbp = oxpFactory.buildSbp()
