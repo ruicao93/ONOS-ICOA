@@ -1,5 +1,6 @@
 package org.onosproject.oxp.domain;
 
+import org.onlab.packet.IpAddress;
 import org.onosproject.oxp.OxpSuper;
 import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.protocol.*;
@@ -52,6 +53,10 @@ public interface OxpDomainController {
      * @param msg
      */
     void write(OXPMessage msg);
+
+    void sendSbpFwdReqMsg(IpAddress srcIpAddress, IpAddress dstIpAddress,
+                          int inPort, IpAddress mask,
+                          short ethType, byte qos, byte[] data);
 
     /**
      * Process a msg and notify the appropriate listener.

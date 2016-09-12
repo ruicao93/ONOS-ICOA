@@ -4,6 +4,7 @@ import org.apache.felix.scr.annotations.*;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.onlab.packet.Ethernet;
+import org.onlab.packet.Ip4Address;
 import org.onlab.packet.ONOSLLDP;
 import org.onlab.packet.OXPLLDP;
 import org.onosproject.cluster.ClusterMetadataService;
@@ -419,16 +420,20 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                         .build();
                 ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
                 ofPacketInForSuper.writeTo(buffer);
-                //byte[] data = new byte[buffer.readableBytes()];
-                //buffer.readBytes(data, 0, buffer.readableBytes());
-                Set<OXPSbpFlags> sbpFlagses = new HashSet<>();
-                sbpFlagses.add(OXPSbpFlags.DATA_EXIST);
-                OXPSbp oxpSbp = oxpFactory.buildSbp()
-                        .setSbpCmpType(OXPSbpCmpType.NORMAL)
-                        .setFlags(sbpFlagses)
-                        .setSbpData(OXPSbpData.read(buffer, buffer.readableBytes(), domainController.getOxpVersion()))
-                        .build();
-                domainController.write(oxpSbp);
+                byte[] data = new byte[buffer.readableBytes()];
+                buffer.readBytes(data, 0, buffer.readableBytes());
+//                Set<OXPSbpFlags> sbpFlagses = new HashSet<>();
+//                sbpFlagses.add(OXPSbpFlags.DATA_EXIST);
+//                OXPSbp oxpSbp = oxpFactory.buildSbp()
+//                        .setSbpCmpType(OXPSbpCmpType.NORMAL)
+//                        .setFlags(sbpFlagses)
+//                        .setSbpData(OXPSbpData.read(buffer, buffer.readableBytes(), domainController.getOxpVersion()))
+//                        .build();
+//                domainController.write(oxpSbp);
+                domainController.sendSbpFwdReqMsg(Ip4Address.valueOf("127.0.0.1"), Ip4Address.valueOf("255.255.255.255"),
+                        (int) getLogicalVportNum(edgeConnectPoint).toLong()
+                        , Ip4Address.valueOf("255.255.255.255"),
+                        eth.getEtherType(), (byte) 0, data);
                 context.block();
             }
         }

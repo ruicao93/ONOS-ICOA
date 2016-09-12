@@ -11,9 +11,8 @@ import org.onosproject.oxp.OxpDomainMessageListener;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.oxpsuper.OxpSuperTopoService;
 import org.onosproject.oxp.protocol.*;
-import org.onosproject.oxp.types.OXPHost;
-import org.onosproject.oxp.types.OXPSbpData;
-import org.onosproject.oxp.types.OXPVport;
+import org.onosproject.oxp.protocol.ver10.OXPForwardingReplyVer10;
+import org.onosproject.oxp.types.*;
 import org.projectfloodlight.openflow.protocol.*;
 import org.projectfloodlight.openflow.protocol.action.OFAction;
 import org.projectfloodlight.openflow.protocol.action.OFActionOutput;
@@ -21,6 +20,7 @@ import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.projectfloodlight.openflow.types.*;
 import org.projectfloodlight.openflow.types.EthType;
+import org.projectfloodlight.openflow.types.IPv4Address;
 import org.slf4j.Logger;
 
 import java.util.*;
@@ -105,8 +105,8 @@ public class OxpSuperRouting {
         //若在同一域内
         if (srcDeviceId.equals(dstDeviceId)) {
             // 安装流表 inport: inport, outPort:local
-            OFFlowMod fm = buildFlowMod(srcDomain, inPort, PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()),
-                    srcIp, target, xid, cookie);
+//            OFFlowMod fm = buildFlowMod(srcDomain, inPort, PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()),
+//                    srcIp, target, xid, cookie);
 //            OFActionOutput.Builder action = srcDomain.ofFactory().actions().buildOutput()
 //                    .setPort(OFPort.of(OXPVport.LOCAL.getPortNumber()));
 //            List<OFAction> actions = new ArrayList<>();
@@ -127,11 +127,13 @@ public class OxpSuperRouting {
 //                    .setFlags(Collections.singleton(OFFlowModFlags.SEND_FLOW_REM))
 //                    .setPriority(10)
 //                    .build();
-            installFlow(deviceId, fm);
+            //installFlow(deviceId, fm);
+            installFlow(deviceId, srcIp, target, inPort, PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()),
+                    IpAddress.valueOf("255.255.255.255"), eth.getEtherType(), (byte) 0, xid, cookie);
             packetOut(deviceId, inPort, PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()), eth, xid);
             return;
         }
-        // TODO computePath and install flows
+        // TODO use loadbalance path instead
         Set<Path> paths = topoService.getPaths(srcDeviceId, dstDeviceId);
         if (paths.isEmpty()) return;
         Path path = (Path) paths.toArray()[0];
@@ -139,20 +141,26 @@ public class OxpSuperRouting {
         Link formerLink = null;
         for (Link link : path.links()) {
             if (link.src().equals(path.src())) {
-                OFFlowMod fm = buildFlowMod(superController.getOxpDomain(link.src().deviceId()), inPort, link.src().port(),
-                        srcIp, target, xid, cookie);
-                installFlow(link.src().deviceId(), fm);
+//                OFFlowMod fm = buildFlowMod(superController.getOxpDomain(link.src().deviceId()), inPort, link.src().port(),
+//                        srcIp, target, xid, cookie);
+//                installFlow(link.src().deviceId(), fm);
+                installFlow(link.src().deviceId(), srcIp, target, inPort, link.src().port(),
+                        IpAddress.valueOf("255.255.255.255"), eth.getEtherType(), (byte) 0, xid, cookie);
 
             } else {
-                OFFlowMod fmFommer = buildFlowMod(superController.getOxpDomain(link.src().deviceId()), formerLink.dst().port(), link.src().port(),
-                        srcIp, target, xid, cookie);
-                installFlow(link.src().deviceId(), fmFommer);
+//                OFFlowMod fmFommer = buildFlowMod(superController.getOxpDomain(link.src().deviceId()), formerLink.dst().port(), link.src().port(),
+//                        srcIp, target, xid, cookie);
+//                installFlow(link.src().deviceId(), fmFommer);
+                installFlow(link.src().deviceId(), srcIp, target, formerLink.dst().port(), link.src().port(),
+                        IpAddress.valueOf("255.255.255.255"), eth.getEtherType(), (byte) 0, xid, cookie);
             }
             if (link.dst().equals(path.dst())) {
-                OFFlowMod fmLatter = buildFlowMod(superController.getOxpDomain(link.dst().deviceId()), link.dst().port(),
-                        PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()),
-                        srcIp, target, xid, cookie);
-                installFlow(link.dst().deviceId(), fmLatter);
+//                OFFlowMod fmLatter = buildFlowMod(superController.getOxpDomain(link.dst().deviceId()), link.dst().port(),
+//                        PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()),
+//                        srcIp, target, xid, cookie);
+//                installFlow(link.dst().deviceId(), fmLatter);
+                installFlow(link.dst().deviceId(), srcIp, target, link.dst().port(), PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()),
+                        IpAddress.valueOf("255.255.255.255"), eth.getEtherType(), (byte) 0, xid, cookie);
                 packetOut(link.dst().deviceId(), link.dst().port(), PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()), eth, xid);
             }
             formerLink = link;
@@ -163,33 +171,54 @@ public class OxpSuperRouting {
 
     private void packetOut(DeviceId deviceId,PortNumber inPort, PortNumber outPort, Ethernet eth, long xid) {
         OXPDomain domain = superController.getOxpDomain(deviceId);
-        OFActionOutput act = domain.ofFactory().actions()
-                .buildOutput()
-                .setPort(OFPort.of((int) outPort.toLong()))
-                .build();
-        OFPacketOut.Builder builder = domain.ofFactory().buildPacketOut();
-        OFPacketOut pktout = builder.setXid(xid)
-                .setBufferId(OFBufferId.NO_BUFFER)
-                .setInPort(OFPort.of((int) inPort.toLong()))
-                .setActions(Collections.singletonList(act))
-                .setData(eth.serialize())
-                .build();
-        ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
-        pktout.writeTo(buffer);
-        Set<OXPSbpFlags> sbpFlagses = new HashSet<>();
-        sbpFlagses.add(OXPSbpFlags.DATA_EXIST);
-        OXPSbp oxpSbp = domain.factory().buildSbp()
-                .setSbpCmpType(OXPSbpCmpType.NORMAL)
-                .setFlags(sbpFlagses)
-                .setSbpData(OXPSbpData.read(buffer, buffer.readableBytes(), domain.getOxpVersion()))
-                .build();
-        superController.sendMsg(deviceId, oxpSbp);
+        if (domain.isCompressedMode()) {
+            superController.sendSbpPacketOut(deviceId, outPort, eth.serialize());
+        } else {
+            OFActionOutput act = domain.ofFactory().actions()
+                    .buildOutput()
+                    .setPort(OFPort.of((int) outPort.toLong()))
+                    .build();
+            OFPacketOut.Builder builder = domain.ofFactory().buildPacketOut();
+            OFPacketOut pktout = builder.setXid(xid)
+                    .setBufferId(OFBufferId.NO_BUFFER)
+                    .setInPort(OFPort.of((int) inPort.toLong()))
+                    .setActions(Collections.singletonList(act))
+                    .setData(eth.serialize())
+                    .build();
+            ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
+            pktout.writeTo(buffer);
+            Set<OXPSbpFlags> sbpFlagses = new HashSet<>();
+            sbpFlagses.add(OXPSbpFlags.DATA_EXIST);
+            OXPSbp oxpSbp = domain.factory().buildSbp()
+                    .setSbpCmpType(OXPSbpCmpType.NORMAL)
+                    .setFlags(sbpFlagses)
+                    .setSbpData(OXPSbpData.read(buffer, buffer.readableBytes(), domain.getOxpVersion()))
+                    .build();
+            superController.sendMsg(deviceId, oxpSbp);
+        }
+
     }
 
     private void flood(Ethernet eth, long xid) {
         for (OXPDomain domain : superController.getOxpDomains()) {
             packetOut(domain.getDeviceId(), PortNumber.portNumber(OXPVport.LOCAL.getPortNumber()),
                     PortNumber.portNumber(OXPVport.FLOOD.getPortNumber()), eth, xid);
+        }
+    }
+
+    private void installFlow(DeviceId deviceId, IpAddress srcIp, IpAddress dstIp,
+                             PortNumber srcPort, PortNumber dstPort,
+                             IpAddress mask, short ethType, byte qos,
+                             long xid, long cookie) {
+        OXPDomain domain = superController.getOxpDomain(deviceId);
+        if (domain.isCompressedMode()) {
+            superController.sendSbpFwdReply(deviceId, srcIp, dstIp,
+                    srcPort, dstPort, mask,
+                    ethType, qos);
+        } else {
+            OFFlowMod fm = buildFlowMod(domain, srcPort, dstPort,
+                    srcIp, dstIp, xid, cookie);
+            installFlow(deviceId, fm);
         }
     }
 
@@ -241,24 +270,36 @@ public class OxpSuperRouting {
         public void handleIncomingMessage(DeviceId deviceId, OXPMessage msg) {
             if (msg.getType() == OXPType.OXPT_SBP) {
                 OXPSbp sbp = (OXPSbp) msg;
-                OFMessage ofMsg = superController.parseOfMessage(sbp);
-                //只处理packet-in消息
-                if (null == ofMsg || ofMsg.getType() != OFType.PACKET_IN) {
-                    return;
+                long xid = 0;
+                long cookie = U64.ZERO.getValue();
+                PortNumber inPort = null;
+                Ethernet eth = null;
+                if (sbp.getSbpCmpType().equals(OXPSbpCmpType.NORMAL)) {
+                    OFMessage ofMsg = superController.parseOfMessage(sbp);
+                    //只处理packet-in消息
+                    if (null == ofMsg || ofMsg.getType() != OFType.PACKET_IN) {
+                        return;
+                    }
+                    OFPacketIn packetIn = (OFPacketIn) ofMsg;
+                    xid = packetIn.getXid();
+                    inPort = PortNumber.portNumber(packetIn.getMatch().get(MatchField.IN_PORT).getPortNumber());
+                    eth = superController.parseEthernet(packetIn.getData());
+                    cookie = packetIn.getCookie().getValue();
+                } else if (sbp.getSbpCmpType().equals(OXPSbpCmpType.FORWARDING_REQUEST)) {
+                    OXPForwardingRequest sbpCmpFwdReq = (OXPForwardingRequest)sbp.getSbpCmpData();
+                    inPort = PortNumber.portNumber(sbpCmpFwdReq.getInport());
+                    eth = superController.parseEthernet(sbpCmpFwdReq.getData());
                 }
-                OFPacketIn packetIn = (OFPacketIn) ofMsg;
-                long xid = packetIn.getXid();
-                PortNumber inPort = PortNumber.portNumber(packetIn.getMatch().get(MatchField.IN_PORT).getPortNumber());
-                Ethernet eth = superController.parseEthernet(packetIn.getData());
+
                 if (null == eth) {
                     return;
                 }
                 if (eth.getEtherType() == TYPE_ARP) {
-                    processArp(deviceId, eth, inPort, packetIn.getXid());
+                    processArp(deviceId, eth, inPort, xid);
                     return;
                 }
                 if (eth.getEtherType() == TYPE_IPV4) {
-                    processIpv4(deviceId, eth, inPort, packetIn.getXid(), packetIn.getCookie().getValue());
+                    processIpv4(deviceId, eth, inPort, xid, cookie);
                     return;
                 }
 

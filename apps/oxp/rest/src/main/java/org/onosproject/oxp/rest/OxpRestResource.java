@@ -52,6 +52,29 @@ public class OxpRestResource extends AbstractWebResource {
         root.put("domainCount", domainCount)
                 .put("linkCount", linkCount)
                 .put("hostCount", hostCount);
+        ArrayNode domainArray = root.putArray("domains");
+        for (OXPDomain domain : get(OxpSuperController.class).getOxpDomains()) {
+            ObjectNode domainNode = mapper().createObjectNode();
+            domainNode.put("id", domain.getDomainId().toString());
+            if (domain.isAdvancedMode()) {
+                domainNode.put("workMode", "Advanced");
+                if (domain.isCapBwSet()) {
+                    domainNode.put("capabilityType", "bandwidth");
+                } else if (domain.isCapDelaySet()) {
+                    domainNode.put("capabilityType", "delay");
+                } else {
+                    domainNode.put("capabilityType", "hop");
+                }
+            } else {
+                domainNode.put("workMode", "Simple");
+            }
+            if (domain.isCompressedMode()) {
+                domainNode.put("SBPTransferMode", "Compressed");
+            } else {
+                domainNode.put("SBPTransferMode", "Normal");
+            }
+            domainArray.add(domainNode);
+        }
         return ok(root).build();
     }
 

@@ -398,16 +398,24 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
             }
             if (msg.getType() == OXPType.OXPT_SBP) {
                 OXPSbp sbp = (OXPSbp) msg;
-                ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
-                sbp.getSbpData().writeTo(buffer);
-                OFMessage ofMsg = superController.parseOfMessage(sbp);
-                //只处理packet-in消息
-                if (null == ofMsg || ofMsg.getType() != OFType.PACKET_IN) {
-                    return;
+                Ethernet eth = null;
+                PortNumber inPort = null;
+                if (sbp.getSbpCmpType().equals(OXPSbpCmpType.NORMAL)) {
+                    ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
+                    sbp.getSbpData().writeTo(buffer);
+                    OFMessage ofMsg = superController.parseOfMessage(sbp);
+                    //只处理packet-in消息
+                    if (null == ofMsg || ofMsg.getType() != OFType.PACKET_IN) {
+                        return;
+                    }
+                    OFPacketIn packetIn = (OFPacketIn) ofMsg;
+                    inPort = PortNumber.portNumber(packetIn.getMatch().get(MatchField.IN_PORT).getPortNumber());
+                    eth = superController.parseEthernet(packetIn.getData());
+                } else if (sbp.getSbpCmpType().equals(OXPSbpCmpType.FORWARDING_REQUEST)){
+                    OXPForwardingRequest sbpCmpFwdReq = (OXPForwardingRequest)sbp.getSbpCmpData();
+                    inPort = PortNumber.portNumber(sbpCmpFwdReq.getInport());
+                    eth = superController.parseEthernet(sbpCmpFwdReq.getData());
                 }
-                OFPacketIn packetIn = (OFPacketIn) ofMsg;
-                PortNumber inPort = PortNumber.portNumber(packetIn.getMatch().get(MatchField.IN_PORT).getPortNumber());
-                Ethernet eth = superController.parseEthernet(packetIn.getData());
                 if (null == eth) {
                     return;
                 }
@@ -415,7 +423,6 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
                     processOxpLldp(deviceId, eth, inPort);
                     return;
                 }
-
                 return;
             }
 

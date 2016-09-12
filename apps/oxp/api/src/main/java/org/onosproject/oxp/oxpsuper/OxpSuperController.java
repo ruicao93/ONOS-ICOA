@@ -1,8 +1,10 @@
 package org.onosproject.oxp.oxpsuper;
 
 import org.onlab.packet.Ethernet;
+import org.onlab.packet.IpAddress;
 import org.onosproject.net.Device;
 import org.onosproject.net.DeviceId;
+import org.onosproject.net.PortNumber;
 import org.onosproject.oxp.OXPDomain;
 import org.onosproject.oxp.OxpDomainMessageListener;
 import org.onosproject.oxp.OxpSuperMessageListener;
@@ -34,6 +36,11 @@ public interface OxpSuperController {
     void removeOxpDomainListener(OxpDomainListener listener);
 
     void sendMsg(DeviceId deviceId, OXPMessage msg);
+
+    void sendSbpPacketOut(DeviceId deviceId, PortNumber outPort, byte[] data);
+    void sendSbpFwdReply(DeviceId deviceId, IpAddress srcIp, IpAddress dstIp,
+                         PortNumber srcPort, PortNumber dstPort,
+                         IpAddress mask, short ethType, byte qos);
 
     void addDomain(DeviceId deviceId, OXPDomain domain);
     void removeDomain(DeviceId deviceId);

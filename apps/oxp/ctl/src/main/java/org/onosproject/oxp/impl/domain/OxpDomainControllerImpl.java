@@ -1,21 +1,26 @@
 package org.onosproject.oxp.impl.domain;
 
 import org.apache.felix.scr.annotations.*;
+import org.onlab.packet.IpAddress;
 import org.onosproject.core.CoreService;
 import org.onosproject.net.config.NetworkConfigRegistry;
 import org.onosproject.net.topology.OxpDomainConfig;
-import org.onosproject.oxp.domain.OxpDomainController;
 import org.onosproject.oxp.OxpSuper;
-import org.onosproject.oxp.domain.OxpSuperListener;
 import org.onosproject.oxp.OxpSuperMessageListener;
+import org.onosproject.oxp.domain.OxpDomainController;
+import org.onosproject.oxp.domain.OxpSuperListener;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.protocol.ver10.OXPCapabilitiesSerializerVer10;
 import org.onosproject.oxp.protocol.ver10.OXPConfigFlagsSerializerVer10;
+import org.onosproject.oxp.protocol.ver10.OXPForwardingRequestVer10;
 import org.onosproject.oxp.protocol.ver10.OXPSbpTypeSerializerVer10;
 import org.onosproject.oxp.types.DomainId;
+import org.onosproject.oxp.types.OXPSbpData;
+import org.projectfloodlight.openflow.types.IPAddress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -46,6 +51,7 @@ public class OxpDomainControllerImpl implements OxpDomainController {
     private DomainId domainId;
     private OxpSuper oxpSuper;
     private OXPVersion oxpVersion;
+    private OXPFactory oxpFactory;
     boolean advancedModeFlag = false;
     boolean bwFlag = false;
     boolean delayFlag = false;  // TODO: support latency in the future
@@ -132,6 +138,7 @@ public class OxpDomainControllerImpl implements OxpDomainController {
         if (getFlags().contains(OXPConfigFlags.MODE_COMPRESSED)) {
             compressModeFlag = true;
         }
+        oxpFactory = OXPFactories.getFactory(oxpVersion);
     }
     @Override
     public void processMessage(OXPMessage msg) {
@@ -199,6 +206,37 @@ public class OxpDomainControllerImpl implements OxpDomainController {
     synchronized public void write(OXPMessage msg) {
         if (null != oxpSuper && oxpSuper.isConnected()) {
             oxpSuper.sendMsg(msg);
+        }
+    }
+
+    @Override
+    public void sendSbpFwdReqMsg(IpAddress srcIpAddress, IpAddress dstIpAddress,
+                                 int inPort, IpAddress mask,
+                                 short ethType, byte qos, byte[] data) {
+        if (isCompressedMode()) {
+            Set<OXPSbpFlags> flags = new HashSet<>();
+            flags.add(OXPSbpFlags.DATA_EXIST);
+            OXPSbpCmpData sbpCmpData = OXPForwardingRequestVer10.of(org.onosproject.oxp.types.IPv4Address.of(srcIpAddress.getIp4Address().toInt()),
+                    org.onosproject.oxp.types.IPv4Address.of(dstIpAddress.getIp4Address().toInt()),
+                    inPort,
+                    org.onosproject.oxp.types.IPv4Address.of(mask.getIp4Address().toInt()),
+                    ethType, qos, data);
+            OXPSbp oxpSbp = oxpFactory.buildSbp()
+                    .setSbpCmpType(OXPSbpCmpType.FORWARDING_REQUEST)
+                    .setFlags(flags)
+                    .setDataLength((short) sbpCmpData.getData().length)
+                    .setSbpCmpData(sbpCmpData)
+                    .build();
+            write(oxpSbp);
+        } else {
+            Set<OXPSbpFlags> oxpSbpflgs = new HashSet<>();
+            oxpSbpflgs.add(OXPSbpFlags.DATA_EXIST);
+            OXPSbp oxpSbp = oxpFactory.buildSbp()
+                    .setSbpCmpType(OXPSbpCmpType.NORMAL)
+                    .setFlags(oxpSbpflgs)
+                    .setSbpData(OXPSbpData.of(data, getOxpVersion()))
+                    .build();
+            write(oxpSbp);
         }
     }
 

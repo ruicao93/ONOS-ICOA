@@ -8,10 +8,12 @@ import org.jboss.netty.buffer.ChannelBuffers;
 import org.onlab.packet.ChassisId;
 import org.onlab.packet.DeserializationException;
 import org.onlab.packet.Ethernet;
+import org.onlab.packet.IpAddress;
 import org.onosproject.core.CoreService;
 import org.onosproject.net.DefaultDevice;
 import org.onosproject.net.Device;
 import org.onosproject.net.DeviceId;
+import org.onosproject.net.PortNumber;
 import org.onosproject.net.config.NetworkConfigRegistry;
 import org.onosproject.net.provider.ProviderId;
 import org.onosproject.net.topology.OxpSuperConfig;
@@ -19,10 +21,10 @@ import org.onosproject.oxp.OXPDomain;
 import org.onosproject.oxp.OxpDomainMessageListener;
 import org.onosproject.oxp.oxpsuper.OxpDomainListener;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
-import org.onosproject.oxp.protocol.OXPMessage;
-import org.onosproject.oxp.protocol.OXPSbp;
-import org.onosproject.oxp.protocol.OXPType;
-import org.onosproject.oxp.protocol.OXPVersion;
+import org.onosproject.oxp.protocol.*;
+import org.onosproject.oxp.protocol.ver10.OXPForwardingReplyVer10;
+import org.onosproject.oxp.protocol.ver10.OXPPacketOutVer10;
+import org.onosproject.oxp.types.IPv4Address;
 import org.projectfloodlight.openflow.exceptions.OFParseError;
 import org.projectfloodlight.openflow.protocol.OFFactories;
 import org.projectfloodlight.openflow.protocol.OFMessage;
@@ -61,6 +63,7 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     protected String oxpSuperIp = "127.0.0.1";
     protected int oxpSuperPort = 6688;
     private OXPVersion oxpVersion;
+    private OXPFactory oxpFactory;
 
     @Activate
     public void activate() {
@@ -102,6 +105,7 @@ public class OxpSuperControllerImpl implements OxpSuperController {
         OxpSuperConfig superConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"),OxpSuperConfig.class);
         this.setOxpVersion(OXPVersion.ofWireValue(superConfig.getOxpVersin()));
         this.setOxpSuperPort(superConfig.getSuperPort());
+        oxpFactory = OXPFactories.getFactory(oxpVersion);
     }
     @Override
     public OXPVersion getOxpVersion() {
@@ -159,6 +163,45 @@ public class OxpSuperControllerImpl implements OxpSuperController {
         if (null != domain && domain.isConnected()) {
             domain.sendMsg(msg);
         }
+    }
+
+    @Override
+    public void sendSbpPacketOut(DeviceId deviceId, PortNumber outPort, byte[] data) {
+        OXPPacketOut oxpPacketOut = OXPPacketOutVer10.of((int) outPort.toLong(), data);
+        OXPSbpCmpType sbpCmpType = OXPSbpCmpType.PACKET_OUT;
+        Set<OXPSbpFlags> flags = new HashSet<>();
+        flags.add(OXPSbpFlags.DATA_EXIST);
+        OXPSbp sbpMsg = oxpFactory.buildSbp()
+                .setSbpCmpType(sbpCmpType)
+                .setFlags(flags)
+                .setDataLength((short) oxpPacketOut.getData().length)
+                .setSbpXid(1)
+                .setSbpCmpData(oxpPacketOut)
+                .build();
+        sendMsg(deviceId, sbpMsg);
+    }
+
+    @Override
+    public void sendSbpFwdReply(DeviceId deviceId, IpAddress srcIp, IpAddress dstIp,
+                                PortNumber srcPort, PortNumber dstPort,
+                                IpAddress mask, short ethType, byte qos) {
+        OXPForwardingReply sbpCmpFwdReply = OXPForwardingReplyVer10.of(
+                IPv4Address.of(srcIp.getIp4Address().toInt()),
+                IPv4Address.of(dstIp.getIp4Address().toInt()),
+                (int) srcPort.toLong(),(int) dstPort.toLong(),
+                IPv4Address.of(mask.getIp4Address().toInt()),
+                ethType, qos);
+        OXPSbpCmpType sbpCmpType = OXPSbpCmpType.FORWARDING_REPLY;
+        Set<OXPSbpFlags> flags = new HashSet<>();
+        flags.add(OXPSbpFlags.DATA_EXIST);
+        OXPSbp sbpMsg = oxpFactory.buildSbp()
+                .setSbpCmpType(sbpCmpType)
+                .setFlags(flags)
+                .setDataLength((short) sbpCmpFwdReply.getData().length)
+                .setSbpXid(1)
+                .setSbpCmpData(sbpCmpFwdReply)
+                .build();
+        sendMsg(deviceId, sbpMsg);
     }
 
     @Override

@@ -44,7 +44,7 @@ public class OXPConfigFlagsSerializerVer10 {
             }
         }
         if ((val & MODE_COMPRESSED_VAL) != 0) {
-            set.add(OXPConfigFlags.MODE_TRUST);
+            set.add(OXPConfigFlags.MODE_COMPRESSED);
         }
         if ((val & MODE_TRUEST_VAL) != 0) {
             set.add(OXPConfigFlags.MODE_TRUST);

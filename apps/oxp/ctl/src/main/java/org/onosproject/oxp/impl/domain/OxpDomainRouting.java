@@ -25,8 +25,8 @@ import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.domain.OxpDomainController;
 import org.onosproject.oxp.domain.OxpDomainTopoService;
 import org.onosproject.oxp.protocol.*;
-import org.onosproject.oxp.types.OXPSbpData;
-import org.onosproject.oxp.types.OXPVport;
+import org.onosproject.oxp.protocol.ver10.OXPForwardingRequestVer10;
+import org.onosproject.oxp.types.*;
 import org.projectfloodlight.openflow.protocol.*;
 import org.projectfloodlight.openflow.protocol.action.OFAction;
 import org.projectfloodlight.openflow.protocol.action.OFActionOutput;
@@ -34,6 +34,7 @@ import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.projectfloodlight.openflow.types.EthType;
 import org.projectfloodlight.openflow.types.*;
+import org.projectfloodlight.openflow.types.IPv4Address;
 import org.slf4j.Logger;
 
 import java.nio.ByteBuffer;
@@ -127,6 +128,7 @@ public class OxpDomainRouting {
         log.info("Stoped");
     }
 
+
     /**
      * 翻译Packet-out消息
      * @param pktout
@@ -141,10 +143,39 @@ public class OxpDomainRouting {
                 break;
             }
         }
+        translatePacketOutMessage(PortNumber.portNumber((long) outPort.getPortNumber()), ethpkt);
+//        if (outPort == null) {
+//            return;
+//        }
+//        if (outPort.getPortNumber() == OXPVport.LOCAL.getPortNumber()) {
+//            if (ethpkt.getEtherType() == Ethernet.TYPE_ARP) {
+//                ARP arp = (ARP) ethpkt.getPayload();
+//                packetOut(Ip4Address.valueOf(arp.getTargetProtocolAddress()), ethpkt);
+//            } else if (ethpkt.getEtherType() == Ethernet.TYPE_IPV4) {
+//                IPv4 ipv4 = (IPv4) ethpkt.getPayload();
+//                packetOut(Ip4Address.valueOf(ipv4.getDestinationAddress()), ethpkt);
+//            }
+//        } else {
+//            // vport ---> port
+//            ConnectPoint location = oxpDomainTopoService.getLocationByVport(PortNumber.portNumber(outPort.getPortNumber()));
+//            if (null == location) {
+//                flood(ethpkt);
+//            } else {
+//                packetOut(location, ethpkt);
+//            }
+//        }
+    }
+    private void translatePacketOutMessage(OXPPacketOut cmpPacketOut) throws DeserializationException{
+        byte[] data = cmpPacketOut.getData();
+        translatePacketOutMessage(PortNumber.portNumber(cmpPacketOut.getOutPort()),
+                Ethernet.deserializer().deserialize(data, 0, data.length));
+    }
+
+    private void translatePacketOutMessage(PortNumber outPort, Ethernet ethpkt) {
         if (outPort == null) {
             return;
         }
-        if (outPort.getPortNumber() == OXPVport.LOCAL.getPortNumber()) {
+        if (outPort.toLong() == OXPVport.LOCAL.getPortNumber()) {
             if (ethpkt.getEtherType() == Ethernet.TYPE_ARP) {
                 ARP arp = (ARP) ethpkt.getPayload();
                 packetOut(Ip4Address.valueOf(arp.getTargetProtocolAddress()), ethpkt);
@@ -154,13 +185,22 @@ public class OxpDomainRouting {
             }
         } else {
             // vport ---> port
-            ConnectPoint location = oxpDomainTopoService.getLocationByVport(PortNumber.portNumber(outPort.getPortNumber()));
+            ConnectPoint location = oxpDomainTopoService.getLocationByVport(PortNumber.portNumber(outPort.toString()));
             if (null == location) {
                 flood(ethpkt);
             } else {
                 packetOut(location, ethpkt);
             }
         }
+    }
+
+    private void translateFlowModeMessage(OXPForwardingReply cmpFwdReply) {
+        translateFlowModeMessage(
+                IPv4Address.of(cmpFwdReply.getSrcIpAddress().getBytes()),
+                IPv4Address.of(cmpFwdReply.getDstIpAddress().getBytes()),
+                cmpFwdReply.getSrcVport(),
+                cmpFwdReply.getDstVport(),
+                EthType.of(cmpFwdReply.getEthType()));
     }
 
     private void translateFlowModeMessage(OFFlowMod flowMod) {
@@ -179,6 +219,62 @@ public class OxpDomainRouting {
                 break;
             }
         }
+        translateFlowModeMessage(srcIp, dstIp, inPort.getPortNumber(), outPort.getPortNumber(), ethType);
+//        ConnectPoint srcConnectPoint = null;
+//        ConnectPoint dstConnectPoint = null;
+//        if (null == srcHost) {
+//            srcConnectPoint = oxpDomainTopoService.getLocationByVport(PortNumber.portNumber(inPort.getPortNumber()));
+//        } else {
+//            srcConnectPoint = srcHost.location();
+//        }
+//        if (null == dstHost) {
+//            dstConnectPoint = oxpDomainTopoService.getLocationByVport(PortNumber.portNumber(outPort.getPortNumber()));
+//        } else {
+//            dstConnectPoint = dstHost.location();
+//        }
+//        if (srcConnectPoint == null || dstConnectPoint == null) {
+//            return;
+//        }
+//        // check if src and dst are on same device
+//        if (srcConnectPoint.deviceId().equals(dstConnectPoint.deviceId())) {
+//            installForwardRule(srcConnectPoint.deviceId(), ethType,
+//                    srcIp, dstIp,
+//                    srcConnectPoint.port(), dstConnectPoint.port());
+//            return;
+//        }
+//        // install path between connectpoints
+//        Set<Path> paths = pathService.getPaths(srcConnectPoint.deviceId(), dstConnectPoint.deviceId());
+//        if (paths == null || paths.size() == 0) return;
+//        Path path = (Path) paths.toArray()[0];
+//        List<Link> links = path.links();
+//        Link lastLink = null;
+//        for (Link link : links) {
+//            if (link.src().equals(path.src())) {
+//                installForwardRule(link.src().deviceId(), ethType,
+//                        srcIp, dstIp,
+//                        srcConnectPoint.port(), link.src().port());
+//            } else {
+//                installForwardRule(link.src().deviceId(), ethType,
+//                        srcIp, dstIp,
+//                        lastLink.dst().port(), link.src().port());
+//            }
+//            if (link.dst().equals(path.dst())) {
+//                installForwardRule(link.src().deviceId(), ethType,
+//                        srcIp, dstIp,
+//                        link.dst().port(), dstConnectPoint.port());
+//            }
+//            lastLink = link;
+//        }
+        //packetOut(dstConnectPoint, ethpkt);
+    }
+
+    private void translateFlowModeMessage(IPv4Address srcIp, IPv4Address dstIp,
+                                     long srcVport, long dstVport,
+                                     EthType ethType) {
+        OFPort inPort  = OFPort.of((int) srcVport);
+        OFPort outPort  = OFPort.of((int) dstVport);
+        Host srcHost = getFirstHostByIp(IpAddress.valueOf(srcIp.getInt()));
+        Host dstHost = getFirstHostByIp(IpAddress.valueOf(dstIp.getInt()));
         ConnectPoint srcConnectPoint = null;
         ConnectPoint dstConnectPoint = null;
         if (null == srcHost) {
@@ -224,7 +320,6 @@ public class OxpDomainRouting {
             }
             lastLink = link;
         }
-        //packetOut(dstConnectPoint, ethpkt);
     }
 
     private void installForwardRule(DeviceId deviceId, EthType ethType,
@@ -316,12 +411,15 @@ public class OxpDomainRouting {
             ConnectPoint connectPoint = new ConnectPoint(dstDeviceId, dstPort);
 
             IpAddress target;
+            IpAddress srcAddress;
             HostId id = HostId.hostId(ethPkt.getDestinationMAC());
             // 只处理Arp和IPV4
             if (ethPkt.getEtherType() == Ethernet.TYPE_ARP) {
                 target = Ip4Address.valueOf(((ARP) ethPkt.getPayload()).getTargetProtocolAddress());
+                srcAddress = Ip4Address.valueOf(((ARP) ethPkt.getPayload()).getSenderProtocolAddress());
             } else if (ethPkt.getEtherType() == Ethernet.TYPE_IPV4) {
                 target = Ip4Address.valueOf(((IPv4) ethPkt.getPayload()).getDestinationAddress());
+                srcAddress = Ip4Address.valueOf(((IPv4) ethPkt.getPayload()).getSourceAddress());
                 if (target.equals(broadcast)) {
                     context.block();
                     return;
@@ -352,18 +450,29 @@ public class OxpDomainRouting {
             //byte[] data = buffer.array();
             byte[] data = new byte[buffer.readableBytes()];
             buffer.readBytes(data, 0, buffer.readableBytes());
-            Set<OXPSbpFlags> oxpSbpflgs = new HashSet<>();
-            oxpSbpflgs.add(OXPSbpFlags.DATA_EXIST);
-            OXPSbp oxpSbp = oxpFactory.buildSbp()
-                    .setSbpCmpType(OXPSbpCmpType.NORMAL)
-                    .setFlags(oxpSbpflgs)
-                    .setSbpData(OXPSbpData.of(data, domainController.getOxpVersion()))
-                    .build();
-            domainController.write(oxpSbp);
+            if (domainController.isCompressedMode()) {
+                domainController.sendSbpFwdReqMsg(srcAddress, target,
+                        (int) oxpDomainTopoService.getLogicalVportNum(connectPoint).toLong()
+                        , Ip4Address.valueOf("255.255.255.255"),
+                        ethPkt.getEtherType(), (byte) 0, ethPkt.serialize());
+            } else {
+                Set<OXPSbpFlags> oxpSbpflgs = new HashSet<>();
+                oxpSbpflgs.add(OXPSbpFlags.DATA_EXIST);
+                OXPSbp oxpSbp = oxpFactory.buildSbp()
+                        .setSbpCmpType(OXPSbpCmpType.NORMAL)
+                        .setFlags(oxpSbpflgs)
+                        .setSbpData(OXPSbpData.of(data, domainController.getOxpVersion()))
+                        .build();
+                domainController.write(oxpSbp);
+            }
+
+
             //flood(ethPkt);
             context.block();
         }
     }
+
+
 
     /**
      * 翻译SBP消息
@@ -376,28 +485,38 @@ public class OxpDomainRouting {
                 return;
             }
             OXPSbp oxpSbp = (OXPSbp) msg;
-            ChannelBuffer buff = ChannelBuffers.dynamicBuffer();
-            oxpSbp.getSbpData().writeTo(buff);
-            OFMessage ofMessage = null;
             try {
-                ofMessage = ofFactory.getReader().readFrom(buff);
-                if (null == ofMessage) {
-                    return;
+                switch (oxpSbp.getSbpCmpType()) {
+                    case NORMAL:
+                        ChannelBuffer buff = ChannelBuffers.dynamicBuffer();
+                        oxpSbp.getSbpData().writeTo(buff);
+                        OFMessage ofMessage = null;
+                        ofMessage = ofFactory.getReader().readFrom(buff);
+                        if (null == ofMessage) {
+                            return;
+                        }
+                        // 1. if packet_out
+                        if (ofMessage.getType() == OFType.PACKET_OUT) {
+                            translatePacketOutMessage((OFPacketOut) ofMessage);
+                        } else if (ofMessage.getType() == OFType.FLOW_MOD) {
+                            // 2. if install_flow
+                            translateFlowModeMessage((OFFlowMod) ofMessage);
+                        }
+                        break;
+                    case FORWARDING_REPLY:
+                        translateFlowModeMessage((OXPForwardingReply) oxpSbp.getSbpCmpData());
+                        break;
+                    case PACKET_OUT:
+                        translatePacketOutMessage((OXPPacketOut) oxpSbp.getSbpCmpData());
+                        break;
+                    default:
+                        return;
                 }
-                // 1. if packet_out
-                if (ofMessage.getType() == OFType.PACKET_OUT) {
-                    translatePacketOutMessage((OFPacketOut) ofMessage);
-
-
-                } else if (ofMessage.getType() == OFType.FLOW_MOD) {
-                    // 2. if install_flow
-                    translateFlowModeMessage((OFFlowMod) ofMessage);
-                }
-
             } catch (Exception e) {
                 log.error(e.getMessage());
                 return;
             }
+
         }
 
         @Override
