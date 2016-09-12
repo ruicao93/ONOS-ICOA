@@ -116,9 +116,9 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     }
 
     @Override
-    public long getVportCapability(PortNumber portNumber) {
-        if (!vportCapabilityMap.containsKey(portNumber)) return  0;
-        return vportCapabilityMap.get(portNumber);
+    public long getVportCapability(ConnectPoint portLocation) {
+        if (!vportCapabilityMap.containsKey(portLocation)) return  0;
+        return vportCapabilityMap.get(portLocation);
     }
 
     @Override
@@ -129,8 +129,8 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     @Override
     public long getInterLinkCapability(Link link) {
         checkNotNull(link);
-        long srcVportCapability = getVportCapability(link.src().port());
-        long dstVportCapability = getVportCapability(link.dst().port());
+        long srcVportCapability = getVportCapability(link.src());
+        long dstVportCapability = getVportCapability(link.dst());
         return srcVportCapability < dstVportCapability ? srcVportCapability : dstVportCapability;
     }
 

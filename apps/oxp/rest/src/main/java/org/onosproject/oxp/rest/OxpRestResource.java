@@ -2,6 +2,7 @@ package org.onosproject.oxp.rest;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.Link;
 import org.onosproject.net.PortNumber;
 import org.onosproject.oxp.OXPDomain;
@@ -127,7 +128,8 @@ public class OxpRestResource extends AbstractWebResource {
             for (PortNumber vport : get(OxpSuperTopoService.class).getVports(domain.getDeviceId())) {
                 ObjectNode vportNode = mapper().createObjectNode();
                 vportNode.put("vportNum", vport.toLong());
-                vportNode.put("capability", get(OxpSuperTopoService.class).getVportCapability(vport));
+                vportNode.put("capability", get(OxpSuperTopoService.class).getVportCapability(
+                        new ConnectPoint(domain.getDeviceId(), vport)));
                 vportArray.add(vportNode);
             }
             vports.add(domainNode);
