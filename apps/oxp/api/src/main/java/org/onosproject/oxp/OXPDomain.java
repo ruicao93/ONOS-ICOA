@@ -63,4 +63,10 @@ public interface OXPDomain {
 
     OXPVersion getOxpVersion();
     void setOxpVersion(OXPVersion oxpVersion);
+
+    boolean isAdvancedMode();
+    boolean isCapBwSet();
+    boolean isCapDelaySet();
+    boolean isCapHopSet();
+    boolean isCompressedMode();
 }

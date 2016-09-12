@@ -40,6 +40,12 @@ public class OxpDomain10 implements OXPDomain {
 
     private boolean connected;
 
+    boolean advancedModeFlag = false;
+    boolean bwFlag = false;
+    boolean delayFlag = false;  // TODO: support latency in the future
+    boolean hopFlag = false;
+    boolean compressModeFlag = false;
+
 
     public OxpDomain10(OxpSuperController superController) {
         this.superController = superController;
@@ -119,6 +125,21 @@ public class OxpDomain10 implements OXPDomain {
     @Override
     public void setFlags(Set<OXPConfigFlags> flags) {
         this.flags = flags;
+        if (getFlags().contains(OXPConfigFlags.MODE_ADVANCED)) {
+            advancedModeFlag = true;
+            if (getFlags().contains(OXPConfigFlags.CAP_BW)) {
+                bwFlag = true;
+            } else if (getFlags().contains(OXPConfigFlags.CAP_DELAY)) {
+                delayFlag = true;
+            } else if (getFlags().contains(OXPConfigFlags.CAP_HOP)) {
+                hopFlag = true;
+            } else {
+                bwFlag = true; // default
+            }
+        }
+        if (getFlags().contains(OXPConfigFlags.MODE_COMPRESSED)) {
+            compressModeFlag = true;
+        }
     }
 
     @Override
@@ -212,5 +233,30 @@ public class OxpDomain10 implements OXPDomain {
     @Override
     public void setOxpVersion(OXPVersion oxpVersion) {
         this.oxpVersion = oxpVersion;
+    }
+
+    @Override
+    public boolean isAdvancedMode() {
+        return advancedModeFlag;
+    }
+
+    @Override
+    public boolean isCapBwSet() {
+        return bwFlag;
+    }
+
+    @Override
+    public boolean isCapDelaySet() {
+        return delayFlag;
+    }
+
+    @Override
+    public boolean isCapHopSet() {
+        return hopFlag;
+    }
+
+    @Override
+    public boolean isCompressedMode() {
+        return compressModeFlag;
     }
 }

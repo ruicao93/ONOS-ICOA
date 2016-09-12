@@ -174,30 +174,37 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         domainController.write(msg);
         if (reason.equals(OXPVportReason.DELETE)) {
             vportMap.remove(edgeConnectPoint);
-            return;
         }
         updateTopo();
     }
 
     private void updateTopo() {
+        // if mode is Advanced: synchronize intra links
+        // else if mode is Simple: only send information of vport
+
         List<OXPInternalLink> internalLinks = new ArrayList<>();
         Set<PortNumber> hasHandledVport = new HashSet<>();
         for (ConnectPoint srcConnectPoint : vportMap.keySet()) {
             PortNumber srcVport = vportMap.get(srcConnectPoint);
             OXPVport srcVportDesc = OXPVport.ofShort((short) srcVport.toLong());
-            long srcVportCurSpeed = portStatisticsService.load(srcConnectPoint).rate() * 8;//data source: Bps
+            long srcVportCapability = getVportCapability(srcConnectPoint);
             for (ConnectPoint dstConnectPoint : vportMap.keySet()) {
                 PortNumber dstVport = vportMap.get(dstConnectPoint);
                 OXPVport dstVportDesc = OXPVport.ofShort((short) dstVport.toLong());
-                long dstVportCurSpeed = portStatisticsService.load(dstConnectPoint).rate() * 8;//data source: Bps
                 if (srcVport.equals(dstVport) && !hasHandledVport.contains(srcVport)) {
                     hasHandledVport.add(srcVport);
-                    internalLinks.add(OXPInternalLink.of(srcVportDesc, dstVportDesc, srcVportCurSpeed - dstVportCurSpeed, OXPVersion.OXP_10));
+                    internalLinks.add(OXPInternalLink.of(srcVportDesc, dstVportDesc, srcVportCapability, OXPVersion.OXP_10));
+                    if (!domainController.isAdvancedMode()) {
+                        break;
+                    }
                 } else {
-                    long linkSpeed = srcVportCurSpeed < dstVportCurSpeed ? srcVportCurSpeed : dstVportCurSpeed;
+                    if (!domainController.isAdvancedMode()) {
+                        continue;
+                    }
+                    long linkCapability = getIntraLinkCapability(srcConnectPoint, dstConnectPoint);
                     if (!pathService.getPaths(srcConnectPoint.deviceId(), dstConnectPoint.deviceId()).isEmpty()) {
                         internalLinks.add(OXPInternalLink.of(srcVportDesc, dstVportDesc,
-                                linkSpeed, OXPVersion.OXP_10));
+                                linkCapability, OXPVersion.OXP_10));
                     }
                 }
             }
@@ -210,6 +217,38 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         domainController.write(topologyReply);
     }
 
+    private long getVportCapability(ConnectPoint connectPoint) {
+        if (domainController.isCapBwSet()) {
+            Port port = deviceService.getPort(connectPoint.deviceId(), connectPoint.port());
+            long vportMaxSpeed = port.portSpeed() * 1000 * 1000;  //Bps
+            long vportCurSpeed = portStatisticsService.load(connectPoint).rate() * 8;//data source: Bps
+            return vportMaxSpeed - vportCurSpeed;
+        } else if (domainController.isCapDelaySet()) {
+            return 0;
+        } else {
+            // hop flag is set
+            return 0;
+        }
+    }
+
+    private  long getIntraLinkCapability(ConnectPoint srcConnectPoint, ConnectPoint dstConnectPoint) {
+        if (domainController.isCapBwSet()) {
+            long srcVportCap = getVportCapability(srcConnectPoint);
+            long dstVportCap = getVportCapability(dstConnectPoint);
+            return srcVportCap < dstVportCap ? srcVportCap : dstVportCap;
+        } else if (domainController.isCapDelaySet()) {
+            return 0;
+        } else {
+            // hop flag is set
+            Set<Path> path = pathService.getPaths(srcConnectPoint.deviceId(), dstConnectPoint.deviceId());
+            if (!path.isEmpty()) {
+                return ((Path) path.toArray()[0]).links().size();
+            } else {
+                return Long.MAX_VALUE;
+            }
+        }
+
+    }
 
     public PortNumber getLogicalVportNum(ConnectPoint connectPoint) {
         return vportMap.containsKey(connectPoint) ? vportMap.get(connectPoint) : PortNumber.portNumber(OXPVport.LOCAL.getPortNumber());

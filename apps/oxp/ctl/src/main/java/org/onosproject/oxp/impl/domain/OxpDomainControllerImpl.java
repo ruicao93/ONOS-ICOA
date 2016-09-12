@@ -46,6 +46,13 @@ public class OxpDomainControllerImpl implements OxpDomainController {
     private DomainId domainId;
     private OxpSuper oxpSuper;
     private OXPVersion oxpVersion;
+    boolean advancedModeFlag = false;
+    boolean bwFlag = false;
+    boolean delayFlag = false;  // TODO: support latency in the future
+    boolean hopFlag = false;
+    boolean compressModeFlag = false;
+
+    private OxpSuperListener superListener = new InternalOxpListener();
 
     private DomainConnector domainConnector = new DomainConnector(this);
 
@@ -109,6 +116,22 @@ public class OxpDomainControllerImpl implements OxpDomainController {
         this.setPeriod(domainConfig.getPeriod());
         //7.miss send length
         this.setMissSendLen(domainConfig.getMissSendLength());
+
+        if (getFlags().contains(OXPConfigFlags.MODE_ADVANCED)) {
+            advancedModeFlag = true;
+            if (getFlags().contains(OXPConfigFlags.CAP_BW)) {
+                bwFlag = true;
+            } else if (getFlags().contains(OXPConfigFlags.CAP_DELAY)) {
+                delayFlag = true;
+            } else if (getFlags().contains(OXPConfigFlags.CAP_HOP)) {
+                hopFlag = true;
+            } else {
+                bwFlag = true; // default
+            }
+        }
+        if (getFlags().contains(OXPConfigFlags.MODE_COMPRESSED)) {
+            compressModeFlag = true;
+        }
     }
     @Override
     public void processMessage(OXPMessage msg) {
@@ -290,5 +313,43 @@ public class OxpDomainControllerImpl implements OxpDomainController {
     @Override
     public void setOxpVersion(OXPVersion oxpVersion) {
         this.oxpVersion = oxpVersion;
+    }
+
+    @Override
+    public boolean isAdvancedMode() {
+        return advancedModeFlag;
+    }
+
+    @Override
+    public boolean isCapBwSet() {
+        return bwFlag;
+    }
+
+    @Override
+    public boolean isCapDelaySet() {
+        return delayFlag;
+    }
+
+    @Override
+    public boolean isCapHopSet() {
+        return hopFlag;
+    }
+
+    @Override
+    public boolean isCompressedMode() {
+        return compressModeFlag;
+    }
+
+    class InternalOxpListener implements OxpSuperListener {
+        @Override
+        public void connectToSuper(OxpSuper oxpSuper) {
+
+
+        }
+
+        @Override
+        public void disconnectFromSuper(OxpSuper oxpSuper) {
+
+        }
     }
 }
