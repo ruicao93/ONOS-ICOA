@@ -23,14 +23,17 @@ public class OXPSbpVer10 implements OXPSbp {
     private final short dataLength;
     private final long sbpXid;
     private final OXPSbpData sbpData;
+    private final OXPSbpCmpData sbpCmpData;
 
-    OXPSbpVer10(long xid, OXPSbpCmpType sbpCmpType, Set<OXPSbpFlags> flags, short dataLength, long sbpXid, OXPSbpData sbpData) {
+    OXPSbpVer10(long xid, OXPSbpCmpType sbpCmpType, Set<OXPSbpFlags> flags, short dataLength,
+                long sbpXid, OXPSbpData sbpData, OXPSbpCmpData sbpCmpData) {
         this.xid = xid;
         this.sbpCmpType = sbpCmpType;
         this.flags = flags;
         this.dataLength = dataLength;
         this.sbpXid = sbpXid;
         this.sbpData = sbpData;
+        this.sbpCmpData = sbpCmpData;
     }
 
     @Override
@@ -73,7 +76,10 @@ public class OXPSbpVer10 implements OXPSbp {
         return sbpData;
     }
 
-
+    @Override
+    public OXPSbpCmpData getSbpCmpData() {
+        return sbpCmpData;
+    }
 
     static final Reader READER = new Reader();
     static class Reader implements OXPMessageReader<OXPSbp> {
@@ -101,8 +107,24 @@ public class OXPSbpVer10 implements OXPSbp {
             // sbpXId
             long sbpXid = bb.readInt();
             // sbpData
-            OXPSbpData sbpData = OXPSbpData.read(bb,length - (bb.readerIndex() - startIndex), OXPVersion.OXP_10);
-            return new OXPSbpVer10(xid, sbpCmpType, flags, (short) dataLength, sbpXid, sbpData);
+            OXPSbpData sbpData = null;
+            OXPSbpCmpData sbpCmpData = null;
+            switch (sbpCmpType) {
+                case NORMAL:
+                    sbpData = OXPSbpData.read(bb,length - (bb.readerIndex() - startIndex), OXPVersion.OXP_10);
+                    break;
+                case FORWARDING_REQUEST:
+                    sbpCmpData = OXPForwardingRequestVer10.read(bb, dataLength);
+                    break;
+                case FORWARDING_REPLY:
+                    sbpCmpData = OXPForwardingReplyVer10.read(bb);
+                    break;
+                case PACKET_OUT:
+                    sbpCmpData = OXPPacketOutVer10.read(bb, dataLength);
+                    break;
+                default:
+            }
+            return new OXPSbpVer10(xid, sbpCmpType, flags, (short) dataLength, sbpXid, sbpData, sbpCmpData);
         }
     }
 
@@ -134,7 +156,21 @@ public class OXPSbpVer10 implements OXPSbp {
             // sbpXid
             bb.writeInt((int) message.sbpXid);
             // sbpData
-            bb.writeBytes(message.sbpData.getData());
+            switch (message.sbpCmpType) {
+                case NORMAL:
+                    bb.writeBytes(message.sbpData.getData());
+                    break;
+                case FORWARDING_REQUEST:
+                    message.sbpCmpData.writeTo(bb);
+                    break;
+                case FORWARDING_REPLY:
+                    message.sbpCmpData.writeTo(bb);
+                    break;
+                case PACKET_OUT:
+                    message.sbpCmpData.writeTo(bb);
+                default:
+            }
+
             //update length
             int length = bb.writerIndex() - startIndex;
             bb.setShort(lengthIndex, length);
@@ -155,6 +191,7 @@ public class OXPSbpVer10 implements OXPSbp {
         private short dataLength;
         private long sbpXid;
         private OXPSbpData sbpData;
+        private OXPSbpCmpData sbpCmpData;
 
         @Override
         public OXPSbp build() {
@@ -162,9 +199,7 @@ public class OXPSbpVer10 implements OXPSbp {
                 throw new NullPointerException("Property sbpCmdType must not be null");
             if (flags == null)
                 throw new NullPointerException("Property flags must not be null");
-            if (sbpData == null)
-                throw new NullPointerException("Property sbpData must not be null");
-            return new OXPSbpVer10(xid, sbpCmpType, flags, dataLength, sbpXid, sbpData);
+            return new OXPSbpVer10(xid, sbpCmpType, flags, dataLength, sbpXid, sbpData, sbpCmpData);
         }
 
         @Override
@@ -242,6 +277,17 @@ public class OXPSbpVer10 implements OXPSbp {
             this.sbpData = sbpData;
             return this;
         }
+
+        @Override
+        public OXPSbpCmpData getSbpCmpData() {
+            return this.sbpCmpData;
+        }
+
+        @Override
+        public OXPSbp.Builder setSbpCmpData(OXPSbpCmpData sbpCmpData) {
+            this.sbpCmpData = sbpCmpData;
+            return this;
+        }
     }
     @Override
     public void putTo(PrimitiveSink sink) {
@@ -280,6 +326,12 @@ public class OXPSbpVer10 implements OXPSbp {
                 return false;
         } else if (!sbpData.equals(other.sbpData))
             return false;
+        if (sbpCmpData == null) {
+            if (other.sbpCmpData != null)
+                return false;
+        } else if (!sbpCmpData.equals(other.sbpCmpData)) {
+            return false;
+        }
         return true;
     }
 }

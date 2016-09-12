@@ -17,6 +17,7 @@ public interface OXPSbp extends OXPObject, OXPMessage {
     short getDataLength();
     long getSbpXid();
     OXPSbpData getSbpData();
+    OXPSbpCmpData getSbpCmpData();
 
     void writeTo(ChannelBuffer bb);
 
@@ -37,5 +38,7 @@ public interface OXPSbp extends OXPObject, OXPMessage {
         Builder setSbpXid(long sbpXid);
         OXPSbpData getSbpData();
         Builder setSbpData(OXPSbpData sbpData);
+        OXPSbpCmpData getSbpCmpData();
+        Builder setSbpCmpData(OXPSbpCmpData sbpCmpData);
     }
 }
