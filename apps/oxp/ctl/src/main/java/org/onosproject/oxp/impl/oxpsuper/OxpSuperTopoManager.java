@@ -16,6 +16,7 @@ import org.onosproject.net.topology.PathService;
 import org.onosproject.net.topology.TopologyEdge;
 import org.onosproject.net.topology.TopologyService;
 import org.onosproject.oxp.OxpDomainMessageListener;
+import org.onosproject.oxp.oxpsuper.OxpDomainListener;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.oxpsuper.OxpSuperTopoService;
 import org.onosproject.oxp.protocol.*;
@@ -59,6 +60,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
 
     // 监听Domain SBP消息，完成vport,topo收集和邻间链路发现
     private OxpDomainMessageListener domainMessageListener = new InternalDomainMessageListener();
+    private OxpDomainListener domainListener = new InternalDomainListener();
 
     // 记录Vport
     private Map<DeviceId, Set<PortNumber>> vportMap;
@@ -90,11 +92,13 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         interLinkSet = new HashSet<>();
         hostMap = new HashMap<>();
         superController.addMessageListener(domainMessageListener);
+        superController.addOxpDomainListener(domainListener);
     }
 
     @Deactivate
     private void deactivate() {
         superController.removeMessageListener(domainMessageListener);
+        superController.removeOxpDomainListener(domainListener);
         vportMap.clear();
         vportDescMap.clear();
         vportCapabilityMap.clear();
@@ -431,6 +435,23 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         @Override
         public void handleOutGoingMessage(DeviceId deviceId, List<OXPMessage> msgs) {
 
+        }
+    }
+
+    class InternalDomainListener implements OxpDomainListener {
+        @Override
+        public void domainConnected(OXPDomain domain) {
+
+        }
+
+        @Override
+        public void domainDisconnected(OXPDomain domain) {
+            for (PortNumber vport : vportMap.get(domain.getDeviceId())) {
+                ConnectPoint vportLocation = new ConnectPoint(domain.getDeviceId(), vport);
+                vportDescMap.remove(vportLocation);
+                vportCapabilityMap.remove(vportLocation);
+            }
+            vportMap.remove(domain.getDeviceId());
         }
     }
 }
