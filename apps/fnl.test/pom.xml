@@ -26,6 +26,11 @@
             <groupId>org.onosproject</groupId>
             <artifactId>onos-incubator-api</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-core-common</artifactId>
+            <version>1.6.0</version>
+        </dependency>
     </dependencies>
 
     <properties>
