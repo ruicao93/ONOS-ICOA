@@ -18,12 +18,8 @@ package org.fnl.impl;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
-import com.sun.org.apache.bcel.internal.generic.NOP;
 import org.apache.felix.scr.annotations.*;
-
 import org.fnl.intf.MaoRoutingService;
-import org.onlab.packet.EthType;
 import org.onlab.packet.Ethernet;
 import org.onlab.packet.IPv4;
 import org.onlab.packet.IpPrefix;
@@ -36,21 +32,17 @@ import org.onosproject.net.device.DeviceService;
 import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
 import org.onosproject.net.flow.TrafficSelector;
-import org.onosproject.net.flow.TrafficTreatment;
-import org.onosproject.net.flow.criteria.Criteria;
 import org.onosproject.net.flow.criteria.Criterion;
-import org.onosproject.net.flow.criteria.IPCriterion;
-import org.onosproject.net.flowobjective.DefaultForwardingObjective;
-import org.onosproject.net.flowobjective.ForwardingObjective;
 import org.onosproject.net.host.HostService;
-import org.onosproject.net.intent.*;
+import org.onosproject.net.intent.Intent;
+import org.onosproject.net.intent.IntentService;
+import org.onosproject.net.intent.PathIntent;
 import org.onosproject.net.link.LinkService;
 import org.onosproject.net.packet.PacketContext;
 import org.onosproject.net.packet.PacketPriority;
 import org.onosproject.net.packet.PacketProcessor;
 import org.onosproject.net.packet.PacketService;
 import org.onosproject.net.provider.ProviderId;
-import org.onosproject.net.statistic.Load;
 import org.onosproject.net.topology.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -185,7 +177,7 @@ public class MaoRoutingManager implements MaoRoutingService {
 
                 Set<Path> paths = getLoadBalancePaths(srcHostId, dstHostId);
                 if (paths.isEmpty()) {
-                    log.warn("Mao: paths is Empty !!!");
+                    log.warn("paths is Empty !!!");
                     return;
                 }
 
@@ -195,22 +187,34 @@ public class MaoRoutingManager implements MaoRoutingService {
                         .matchIPSrc(IpPrefix.valueOf(ipPkt.getSourceAddress(), 32))
                         .matchIPDst(IpPrefix.valueOf(ipPkt.getDestinationAddress(), 32))
                         .build();
-                if (intentMap.containsKey(selector.criteria())) {
+
+                boolean isContain;
+                synchronized(mapLock) {
+                    isContain = intentMap.containsKey(selector.criteria());
+                }
+                if (isContain) {
                     context.block();
                     return;
                 }
 
 
+                Path result = paths.iterator().next();
+                log.info("\n------ Mao Path Info ------\nSrc:{}, Dst:{}\n{}",
+                        IpPrefix.valueOf(ipPkt.getSourceAddress(), 32).toString(),
+                        IpPrefix.valueOf(ipPkt.getDestinationAddress(), 32),
+                        result.links().toString().replace("Default","\n"));
+
                 PathIntent pathIntent = PathIntent.builder()
-                        .path(paths.iterator().next())
+                        .path(result)
                         .appId(appId)
                         .priority(65432)
                         .selector(selector)
                         .treatment(DefaultTrafficTreatment.emptyTreatment())
                         .build();
                 intentService.submit(pathIntent);
-                intentMap.put(selector.criteria(), pathIntent);
-
+                synchronized (mapLock) {
+                    intentMap.put(selector.criteria(), pathIntent);
+                }
 //                synchronized (lock) {
 //                    count++;
 //                }
@@ -406,7 +410,7 @@ public class MaoRoutingManager implements MaoRoutingService {
         ArrayList links = new ArrayList();
         edges.forEach(edge -> links.add(edge.link()));
 
-        return new DefaultPath(getPathsId, links, cost);
+        return new DefaultPath(routeProviderId, links, cost);
     }
 
     //=================== Step Three: Select one route(Path) =====================
@@ -415,11 +419,14 @@ public class MaoRoutingManager implements MaoRoutingService {
         if (paths.size() < 1)
             return null;
 
-        return getMinCostPath(new ArrayList(paths));
+        return getMinCostMinHopPath(new ArrayList(paths));
     }
 
     /**
      * A strategy to select one best Path.
+     *
+     * @param paths
+     * @return whose max cost of all links is lowest.
      */
     private Path getMinCostPath(List<Path> paths) {
         Path result = paths.get(0);
@@ -429,7 +436,55 @@ public class MaoRoutingManager implements MaoRoutingService {
         }
         return result;
     }
+    /**
+     * A strategy to select one best Path.
+     *
+     * @param paths
+     * @return whose count of all links is lowest.
+     */
+    private Path getMinHopPath(List<Path> paths) {
+        Path result = paths.get(0);
+        for (int i = 1, pathCount = paths.size(); i < pathCount; i++) {
+            Path temp = paths.get(i);
+            result = result.links().size() > temp.links().size() ? temp : result;
+        }
+        return result;
+    }
+    /**
+     * An integrated strategy to select one best Path.
+     *
+     * @param paths
+     * @return whose count of all links is lowest.
+     */
+    private Path getMinCostMinHopPath(List<Path> paths) {
 
+        final double MEASURE_TOLERANCE = 0.05; // 0.05% represent 5M(10G), 12.5M(25G), 50M(100G)
+
+        //Sort by Cost
+        paths.sort((p1,p2)->{
+            if(p1.cost()>p2.cost())
+                return 1;
+            else if(p1.cost()<p2.cost())
+                return -1;
+            else
+                return 0;
+        });
+
+        // get paths with similar lowest cost within MEASURE_TOLERANCE range.
+        List<Path> minCostPaths = new ArrayList<>();
+        Path result = paths.get(0);
+        minCostPaths.add(result);
+        for (int i = 1, pathCount = paths.size(); i < pathCount; i++) {
+            Path temp = paths.get(i);
+            if(temp.cost() - result.cost() < MEASURE_TOLERANCE){
+                minCostPaths.add(temp);
+            }
+        }
+
+        result = getMinHopPath(minCostPaths);
+
+        return result;
+    }
     //=================== Step Four: Build whole Path, with edge links =====================
 
     private Path buildWholePath(EdgeLink srcLink, EdgeLink dstLink, Path linkPath) {
