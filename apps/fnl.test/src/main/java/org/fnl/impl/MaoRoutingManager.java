@@ -156,46 +156,36 @@ public class MaoRoutingManager implements MaoRoutingService {
     }
 
 
-
     private Map<Set<Criterion>, Intent> intentMap;
 
     private InternalPacketProcessor packetProcessor = new InternalPacketProcessor();
 
     private class InternalPacketProcessor implements PacketProcessor {
 
-        private volatile int count = 0;
-        private Integer lock = 0;
+        //        private volatile int count = 0;
+//        private Integer lock = 0;
+        private Integer mapLock = 0;
+
 
         @Override
         public void process(PacketContext context) {
 
-            synchronized (lock) {
+//            synchronized (lock) {
 //                if (context.isHandled() || count > 0) {
-                if (context.isHandled()) {
-
-                    return;
-
-                }
+            if (context.isHandled()) {
+                return;
             }
+//            }
 
             Ethernet pkt = context.inPacket().parsed();
             if (pkt.getEtherType() == Ethernet.TYPE_IPV4) {
 
-                Host srcHost = hostService.getHost(HostId.hostId(pkt.getSourceMAC()));
-                Host dstHost = hostService.getHost(HostId.hostId(pkt.getDestinationMAC()));
-                if (srcHost == null || dstHost == null) {
-                    log.warn("Routing but Host is null, not found");
-                    return;
-                }
+                HostId srcHostId = HostId.hostId(pkt.getSourceMAC());
+                HostId dstHostId = HostId.hostId(pkt.getDestinationMAC());
 
-//                try {
-
-                DeviceId srcDevice = srcHost.location().deviceId();
-                DeviceId dstDevice = dstHost.location().deviceId();
-
-                Set<Path> qingdao = getLoadBalancePaths(srcDevice, dstDevice);
-                if (qingdao.isEmpty()) {
-                    log.warn("Mao: qingdao is Empty !!!");
+                Set<Path> paths = getLoadBalancePaths(srcHostId, dstHostId);
+                if (paths.isEmpty()) {
+                    log.warn("Mao: paths is Empty !!!");
                     return;
                 }
 
@@ -211,37 +201,19 @@ public class MaoRoutingManager implements MaoRoutingService {
                 }
 
 
-                Path wholePath = getEdgeToEdgePath(
-                        getEdgeLink(srcHost, true),
-                        getEdgeLink(dstHost, false),
-                        qingdao.iterator().next());
-
                 PathIntent pathIntent = PathIntent.builder()
-                        .path(wholePath)
+                        .path(paths.iterator().next())
                         .appId(appId)
-                        .priority(63355)
+                        .priority(65432)
                         .selector(selector)
                         .treatment(DefaultTrafficTreatment.emptyTreatment())
                         .build();
-
-//                HostToHostIntent hostToHostIntent = HostToHostIntent.builder()
-//                        .appId(appId)
-//                        .one(HostId.hostId(pkt.getSourceMAC()))
-//                        .two(HostId.hostId(pkt.getDestinationMAC()))
-//                        .selector(selector)
-//                        .treatment(DefaultTrafficTreatment.emptyTreatment())
-//                        .priority(33333)
-//                        .build();
-
                 intentService.submit(pathIntent);
                 intentMap.put(selector.criteria(), pathIntent);
+
+//                synchronized (lock) {
+//                    count++;
 //                }
-//                catch(Exception e){
-//                    int a= 1;
-//                }
-                synchronized (lock) {
-                    count++;
-                }
 
                 context.block();
             }
@@ -249,9 +221,9 @@ public class MaoRoutingManager implements MaoRoutingService {
     }
 
 
-
-    
     //=================== Start =====================
+
+    ProviderId routeProviderId = new ProviderId("FNL", "Mao");
 
     private Set<Path> getLoadBalancePaths(ElementId src, ElementId dst) {
         Topology currentTopo = topologyService.currentTopology();
@@ -260,12 +232,12 @@ public class MaoRoutingManager implements MaoRoutingService {
 
     private Set<Path> getLoadBalancePaths(Topology topo, ElementId src, ElementId dst) {
 
-        if(src instanceof DeviceId && dst instanceof DeviceId){
+        if (src instanceof DeviceId && dst instanceof DeviceId) {
 
             // no need to create edge link.
             // --- Three Step by Mao. ---
 
-            Set<List<TopologyEdge>> allRoutes = findAllRoutes(topo, (DeviceId)src, (DeviceId)dst);
+            Set<List<TopologyEdge>> allRoutes = findAllRoutes(topo, (DeviceId) src, (DeviceId) dst);
 
             Set<Path> allPaths = calculateRoutesCost(allRoutes);
 
@@ -275,17 +247,17 @@ public class MaoRoutingManager implements MaoRoutingService {
             //use Set to be compatible with ONOS API
             return linkPath != null ? ImmutableSet.of(linkPath) : ImmutableSet.of();
 
-        }else if(src instanceof HostId && dst instanceof HostId){
+        } else if (src instanceof HostId && dst instanceof HostId) {
 
 
-            Host srcHost = hostService.getHost((HostId)src);
-            Host dstHost = hostService.getHost((HostId)dst);
-            if (srcHost == null || dstHost == null ) {
+            Host srcHost = hostService.getHost((HostId) src);
+            Host dstHost = hostService.getHost((HostId) dst);
+            if (srcHost == null || dstHost == null) {
                 log.warn("Generate whole path but found null, hostSrc:{}, hostDst:{}", srcHost, dstHost);
                 return ImmutableSet.of();
             }
-            EdgeLink srcLink = getEdgeLink(srcHost,true);
-            EdgeLink dstLink = getEdgeLink(dstHost,false);
+            EdgeLink srcLink = getEdgeLink(srcHost, true);
+            EdgeLink dstLink = getEdgeLink(dstHost, false);
 
 
             // --- Four Step by Mao. ---
@@ -296,12 +268,12 @@ public class MaoRoutingManager implements MaoRoutingService {
 
             Path linkPath = selectRoute(allPaths);
 
-            Path wholePath = buildWholePath(srcLink, dstLink,linkPath);
+            Path wholePath = buildWholePath(srcLink, dstLink, linkPath);
 
             //use Set to be compatible with ONOS API
             return wholePath != null ? ImmutableSet.of(wholePath) : ImmutableSet.of();
 
-        }else{
+        } else {
             //use Set to be compatible with ONOS API
             return ImmutableSet.of();
         }
@@ -316,7 +288,7 @@ public class MaoRoutingManager implements MaoRoutingService {
      * @return
      */
     private EdgeLink getEdgeLink(Host host, boolean isIngress) {
-        return new DefaultEdgeLink(providerId, new ConnectPoint(host.id(), PortNumber.portNumber(0)),
+        return new DefaultEdgeLink(routeProviderId, new ConnectPoint(host.id(), PortNumber.portNumber(0)),
                 host.location(), isIngress);
     }
 
@@ -399,7 +371,6 @@ public class MaoRoutingManager implements MaoRoutingService {
     //=================== Step Two: Calculate Cost =====================
 
     private BandwidthLinkWeight bandwidthLinkWeightTool = new BandwidthLinkWeight();
-    ProviderId getPathsId = new ProviderId("FNL", "Mao");
 
     private Set<Path> calculateRoutesCost(Set<List<TopologyEdge>> routes) {
 
@@ -461,7 +432,7 @@ public class MaoRoutingManager implements MaoRoutingService {
 
     //=================== Step Four: Build whole Path, with edge links =====================
 
-    private Path buildWholePath(EdgeLink srcLink, EdgeLink dstLink, Path linkPath){
+    private Path buildWholePath(EdgeLink srcLink, EdgeLink dstLink, Path linkPath) {
         if (linkPath == null) {
             log.warn("linkPath is null!");
             return null;
@@ -487,7 +458,7 @@ public class MaoRoutingManager implements MaoRoutingService {
         links.addAll(linkPath.links());
         links.add(dstLink);
 
-        return new DefaultPath(providerId, links, linkPath.cost());
+        return new DefaultPath(routeProviderId, links, linkPath.cost());
     }
 
     //=================== The End =====================
@@ -495,6 +466,7 @@ public class MaoRoutingManager implements MaoRoutingService {
 
     /**
      * Tool for calculating weight value for each Link(TopologyEdge).
+     *
      * @author Mao.
      */
     private class BandwidthLinkWeight implements LinkWeight {
