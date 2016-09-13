@@ -250,44 +250,75 @@ public class MaoRoutingManager implements MaoRoutingService {
 
 
 
-    private ProviderId providerId = new ProviderId("fnl", "org.fnl.test");
-
-
-//    @Deprecated
-//    private Set<Path> getLoadBalancePaths(DeviceId src, DeviceId dst) {
-//        Topology currentTopo = topologyService.currentTopology();
-//        Set<Path> paths = topologyService.getPaths(currentTopo, src, dst, bandwidthLinkWeightTool);
-//        if (paths.size() > 1) {
-//            int a = 0;
-//        }
-//        return paths;
-//    }
-
-
-
-
+    
     //=================== Start =====================
 
-
-    private Set<Path> getLoadBalancePaths(DeviceId src, DeviceId dst) {
+    private Set<Path> getLoadBalancePaths(ElementId src, ElementId dst) {
         Topology currentTopo = topologyService.currentTopology();
         return getLoadBalancePaths(currentTopo, src, dst);
     }
 
-    private Set<Path> getLoadBalancePaths(Topology topo, DeviceId src, DeviceId dst) {
+    private Set<Path> getLoadBalancePaths(Topology topo, ElementId src, ElementId dst) {
 
-        // Three Step by Mao.
+        if(src instanceof DeviceId && dst instanceof DeviceId){
 
-        Set<List<TopologyEdge>> allRoutes = findAllRoutes(topo, src, dst);
+            // no need to create edge link.
+            // --- Three Step by Mao. ---
 
-        Set<Path> allPaths = calculateRoutesCost(allRoutes);
+            Set<List<TopologyEdge>> allRoutes = findAllRoutes(topo, (DeviceId)src, (DeviceId)dst);
 
-        Path path = selectRoute(allPaths);
+            Set<Path> allPaths = calculateRoutesCost(allRoutes);
 
-        //use Set to be compatible with ONOS API
-        return ImmutableSet.of(path);
+            Path linkPath = selectRoute(allPaths);
+
+
+            //use Set to be compatible with ONOS API
+            return linkPath != null ? ImmutableSet.of(linkPath) : ImmutableSet.of();
+
+        }else if(src instanceof HostId && dst instanceof HostId){
+
+
+            Host srcHost = hostService.getHost((HostId)src);
+            Host dstHost = hostService.getHost((HostId)dst);
+            if (srcHost == null || dstHost == null ) {
+                log.warn("Generate whole path but found null, hostSrc:{}, hostDst:{}", srcHost, dstHost);
+                return ImmutableSet.of();
+            }
+            EdgeLink srcLink = getEdgeLink(srcHost,true);
+            EdgeLink dstLink = getEdgeLink(dstHost,false);
+
+
+            // --- Four Step by Mao. ---
+
+            Set<List<TopologyEdge>> allRoutes = findAllRoutes(topo, srcLink.dst().deviceId(), dstLink.src().deviceId());
+
+            Set<Path> allPaths = calculateRoutesCost(allRoutes);
+
+            Path linkPath = selectRoute(allPaths);
+
+            Path wholePath = buildWholePath(srcLink, dstLink,linkPath);
+
+            //use Set to be compatible with ONOS API
+            return wholePath != null ? ImmutableSet.of(wholePath) : ImmutableSet.of();
+
+        }else{
+            //use Set to be compatible with ONOS API
+            return ImmutableSet.of();
+        }
     }
 
+    /**
+     * Generate EdgeLink which is between Host and Device.
+     * Tool for getLoadBalancePaths().
+     *
+     * @param host
+     * @param isIngress whether it is Ingress to Device or not.
+     * @return
+     */
+    private EdgeLink getEdgeLink(Host host, boolean isIngress) {
+        return new DefaultEdgeLink(providerId, new ConnectPoint(host.id(), PortNumber.portNumber(0)),
+                host.location(), isIngress);
+    }
 
     //=================== Step One: Find routes =====================
 
@@ -365,7 +396,6 @@ public class MaoRoutingManager implements MaoRoutingService {
         return links;
     }
 
-
     //=================== Step Two: Calculate Cost =====================
 
     private BandwidthLinkWeight bandwidthLinkWeightTool = new BandwidthLinkWeight();
@@ -431,64 +461,42 @@ public class MaoRoutingManager implements MaoRoutingService {
 
     //=================== Step Four: Build whole Path, with edge links =====================
 
-    private
+    private Path buildWholePath(EdgeLink srcLink, EdgeLink dstLink, Path linkPath){
+        if (linkPath == null) {
+            log.warn("linkPath is null!");
+            return null;
+        }
 
-    private EdgeLink getEdgeLink(Host host, boolean isIngress) {
-        return new DefaultEdgeLink(providerId, new ConnectPoint(host.id(), PortNumber.portNumber(0)),
-                host.location(), isIngress);
+        return buildEdgeToEdgePath(srcLink, dstLink, linkPath);
     }
-
 
     /**
      * Produces a direct edge-to-edge path.
      *
      * @param srcLink
      * @param dstLink
-     * @param path
+     * @param linkPath
      * @return
      */
-    private Path buildEdgeToEdgePath(EdgeLink srcLink, EdgeLink dstLink, Path path) {
-
-        if (srcLink == null || dstLink == null || path == null) {
-            log.warn("Generate EdgePath but found null");
-            return null;
-        }
+    private Path buildEdgeToEdgePath(EdgeLink srcLink, EdgeLink dstLink, Path linkPath) {
 
         List<Link> links = Lists.newArrayListWithCapacity(2);
-        double cost = 0;
 
+        //The cost of edge link is 0.
         links.add(srcLink);
-        cost++;
-
-        links.addAll(path.links());
-        cost += path.cost();
-
+        links.addAll(linkPath.links());
         links.add(dstLink);
-        cost++;
 
-        return new DefaultPath(providerId, links, cost);
+        return new DefaultPath(providerId, links, linkPath.cost());
     }
-
 
     //=================== The End =====================
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    /**
+     * Tool for calculating weight value for each Link(TopologyEdge).
+     * @author Mao.
+     */
     private class BandwidthLinkWeight implements LinkWeight {
 
         //        private static final double LINK_LINE_SPEED = 10000000000.0; // 10Gbps
