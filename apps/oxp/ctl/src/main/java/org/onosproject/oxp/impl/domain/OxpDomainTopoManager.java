@@ -10,6 +10,8 @@ import org.onlab.packet.OXPLLDP;
 import org.onosproject.cluster.ClusterMetadataService;
 import org.onosproject.incubator.net.PortStatisticsService;
 import org.onosproject.net.*;
+import org.onosproject.net.device.DeviceEvent;
+import org.onosproject.net.device.DeviceListener;
 import org.onosproject.net.device.DeviceService;
 import org.onosproject.net.host.HostService;
 import org.onosproject.net.link.LinkEvent;
@@ -93,6 +95,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
     private OxpSuperMessageListener oxpMsgListener = new InternalOxpSuperMsgListener();
     private OxpSuperListener oxpSuperListener = new InternalOxpSuperListener();
     private PacketProcessor oxpLlapPacketProcessor = new InternalPacketProcessor();
+    private DeviceListener deviceListener = new InternalDeviceListener();
 
     private AtomicLong vportNo = new AtomicLong(1);
     private Map<ConnectPoint, PortNumber> vportMap = new HashMap<>();
@@ -121,6 +124,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         domainController.addMessageListener(oxpMsgListener);
         domainController.addOxpSuperListener(oxpSuperListener);
         linkService.addListener(linkListener);
+        deviceService.addListener(deviceListener);
         packetService.addProcessor(oxpLlapPacketProcessor, PacketProcessor.advisor(0));
         executor = newSingleThreadScheduledExecutor(groupedThreads("oxp/topoupdate", "oxp-topoupdate-%d", log));
         executor.scheduleAtFixedRate(new TopoUpdateTask(),
@@ -137,6 +141,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         domainController.removeMessageListener(oxpMsgListener);
         domainController.removeOxpSuperListener(oxpSuperListener);
         packetService.removeProcessor(oxpLlapPacketProcessor);
+        deviceService.removeListener(deviceListener);
         vportMap.clear();
         vportCapabilityMap.clear();
         intraLinkSet.clear();
@@ -202,8 +207,12 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                     if (!domainController.isAdvancedMode()) {
                         continue;
                     }
-                    long linkCapability = getIntraLinkCapability(srcConnectPoint, dstConnectPoint);
-                    if (!pathService.getPaths(srcConnectPoint.deviceId(), dstConnectPoint.deviceId()).isEmpty()) {
+                    if (srcConnectPoint.deviceId().equals(dstConnectPoint.deviceId())) {
+                        long linkCapability = getIntraLinkCapability(srcConnectPoint, dstConnectPoint);
+                        internalLinks.add(OXPInternalLink.of(srcVportDesc, dstVportDesc,
+                                linkCapability, OXPVersion.OXP_10));
+                    } else if (!pathService.getPaths(srcConnectPoint.deviceId(), dstConnectPoint.deviceId()).isEmpty()) {
+                        long linkCapability = getIntraLinkCapability(srcConnectPoint, dstConnectPoint);
                         internalLinks.add(OXPInternalLink.of(srcVportDesc, dstVportDesc,
                                 linkCapability, OXPVersion.OXP_10));
                     }
@@ -232,7 +241,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         }
     }
 
-    private  long getIntraLinkCapability(ConnectPoint srcConnectPoint, ConnectPoint dstConnectPoint) {
+    private long getIntraLinkCapability(ConnectPoint srcConnectPoint, ConnectPoint dstConnectPoint) {
         if (domainController.isCapBwSet()) {
             long srcVportCap = getVportCapability(srcConnectPoint);
             long dstVportCap = getVportCapability(dstConnectPoint);
@@ -241,6 +250,9 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
             return 0;
         } else {
             // hop flag is set
+            if (srcConnectPoint.deviceId().equals(dstConnectPoint.deviceId())) {
+                return 0;
+            }
             Set<Path> path = pathService.getPaths(srcConnectPoint.deviceId(), dstConnectPoint.deviceId());
             if (!path.isEmpty()) {
                 return ((Path) path.toArray()[0]).links().size();
@@ -440,6 +452,33 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                     domainController.write(oxpSbp);
                 }
 
+            }
+        }
+    }
+
+
+    class InternalDeviceListener implements DeviceListener {
+        @Override
+        public void event(DeviceEvent event) {
+            switch (event.type()) {
+                case PORT_REMOVED:
+                    Port delPort = event.port();
+                    ConnectPoint location = new ConnectPoint(delPort.element().id(), delPort.number());
+                    addOrUpdateVport(location,OXPVportState.BLOCKED, OXPVportReason.DELETE);
+                    break;
+                case DEVICE_AVAILABILITY_CHANGED:
+                    Device device = event.subject();
+                    if (!deviceService.isAvailable(device.id())) {
+                        for (Port port : deviceService.getPorts(device.id())) {
+                            ConnectPoint pLocation = new ConnectPoint(port.element().id(), port.number());
+                            if (vportMap.containsKey(pLocation)) {
+                                addOrUpdateVport(pLocation,OXPVportState.BLOCKED, OXPVportReason.DELETE);
+                            }
+
+                        }
+                    }
+
+                default:
             }
         }
     }

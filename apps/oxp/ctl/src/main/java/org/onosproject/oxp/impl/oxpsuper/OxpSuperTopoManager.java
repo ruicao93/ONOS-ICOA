@@ -644,10 +644,17 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
             vportMap.put(deviceId, vportSet);
         }
         PortNumber vportNum = PortNumber.portNumber(vportDesc.getPortNo().getPortNumber());
-        vportSet.add(vportNum);
+        if (vportDesc.getState().equals(OXPVportState.BLOCKED) || vportDesc.getState().equals(OXPVportState.LINK_DOWN)) {
+            vportSet.remove(vportNum);
+            ConnectPoint connectPoint = new ConnectPoint(deviceId, vportNum);
+            vportDescMap.remove(connectPoint);
+        } else {
+            vportSet.add(vportNum);
 
-        ConnectPoint connectPoint = new ConnectPoint(deviceId, vportNum);
-        vportDescMap.put(connectPoint, vportDesc);
+            ConnectPoint connectPoint = new ConnectPoint(deviceId, vportNum);
+            vportDescMap.put(connectPoint, vportDesc);
+        }
+
     }
 
     private void removeVport(DeviceId deviceId, PortNumber vportNum) {
