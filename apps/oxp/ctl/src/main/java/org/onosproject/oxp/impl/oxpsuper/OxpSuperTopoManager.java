@@ -2,19 +2,22 @@ package org.onosproject.oxp.impl.oxpsuper;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import org.apache.felix.scr.annotations.*;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.onlab.packet.*;
+import org.onlab.packet.Ethernet;
+import org.onlab.packet.IpAddress;
+import org.onlab.packet.MacAddress;
+import org.onlab.packet.OXPLLDP;
 import org.onosproject.common.DefaultTopology;
+import org.onosproject.incubator.net.PortStatisticsService;
 import org.onosproject.net.*;
+import org.onosproject.net.device.DeviceService;
+import org.onosproject.net.host.HostService;
 import org.onosproject.net.provider.ProviderId;
 import org.onosproject.net.topology.*;
 import org.onosproject.oxp.OXPDomain;
-import org.onosproject.net.topology.LinkWeight;
-import org.onosproject.net.topology.PathService;
-import org.onosproject.net.topology.TopologyEdge;
-import org.onosproject.net.topology.TopologyService;
 import org.onosproject.oxp.OxpDomainMessageListener;
 import org.onosproject.oxp.oxpsuper.OxpDomainListener;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
@@ -24,9 +27,6 @@ import org.onosproject.oxp.types.DomainId;
 import org.onosproject.oxp.types.IPv4Address;
 import org.onosproject.oxp.types.OXPHost;
 import org.onosproject.oxp.types.OXPInternalLink;
-import org.onosproject.security.AppGuard;
-import org.projectfloodlight.openflow.exceptions.OFParseError;
-import org.projectfloodlight.openflow.protocol.OFFactories;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
 import org.projectfloodlight.openflow.protocol.OFType;
@@ -34,13 +34,10 @@ import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.slf4j.Logger;
 
 import java.util.*;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.onlab.packet.Ethernet.TYPE_LLDP;
 import static org.onosproject.net.PortNumber.portNumber;
-import static org.onosproject.security.AppPermission.Type.TOPOLOGY_READ;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
@@ -215,38 +212,428 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     }
 
 
-    //Todo - move above
-    private BandwidthLinkWeight bandwidthLinkWeightTool = new BandwidthLinkWeight();
+    //=================== Start =====================
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    private DeviceService deviceService;
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    private PortStatisticsService portStatisticsService;
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    private HostService hostService;
 
-    @Override
-    public Set<Path> getLoadBalancePaths(DeviceId src, DeviceId dst) {
-        return topologyService.getPaths(currentTopo, src, dst, bandwidthLinkWeightTool);
+    ProviderId routeProviderId = new ProviderId("BUPT-FNLab", "OXP");
+    private LinkWeight linkWeightTool = null;
+
+
+    public Set<Path> getLoadBalancePaths(ElementId src, ElementId dst) {
+        Topology currentTopo = topologyService.currentTopology();
+        return getLoadBalancePaths(currentTopo, src, dst);
     }
+
+
+    public Set<Path> getLoadBalancePaths(ElementId src, ElementId dst, LinkWeight linkWeight) {
+        Topology currentTopo = topologyService.currentTopology();
+        return getLoadBalancePaths(currentTopo, src, dst, linkWeight);
+    }
+
+    public Set<Path> getLoadBalancePaths(Topology topo, ElementId src, ElementId dst) {
+        return getLoadBalancePaths(currentTopo, src, dst, null);
+    }
+
+    /**
+     * Core Entry of routing function.
+     * just one best Path is returned now.
+     *
+     * @param topo
+     * @param src
+     * @param dst
+     * @param linkWeight
+     * @return empty Set if
+     * 1. no path found
+     * 2. given srcHost or dstHost is not discovered by ONOS
+     * 3. given srcDevice and dstDevice are identical one.
+     */
+    public Set<Path> getLoadBalancePaths(Topology topo, ElementId src, ElementId dst, LinkWeight linkWeight) {
+
+        linkWeightTool = linkWeight == null ? new BandwidthLinkWeight() : linkWeight;
+
+        if (src instanceof DeviceId && dst instanceof DeviceId) {
+
+            // no need to create edge link.
+            // --- Three Step by Mao. ---
+
+            Set<List<TopologyEdge>> allRoutes = findAllRoutes(topo, (DeviceId) src, (DeviceId) dst);
+
+            Set<Path> allPaths = calculateRoutesCost(allRoutes);
+
+            Path linkPath = selectRoute(allPaths);
+
+
+            //use Set to be compatible with ONOS API
+            return linkPath != null ? ImmutableSet.of(linkPath) : ImmutableSet.of();
+
+        } else if (src instanceof HostId && dst instanceof HostId) {
+
+
+            Host srcHost = hostService.getHost((HostId) src);
+            Host dstHost = hostService.getHost((HostId) dst);
+            if (srcHost == null || dstHost == null) {
+                log.warn("Generate whole path but found null, hostSrc:{}, hostDst:{}", srcHost, dstHost);
+                return ImmutableSet.of();
+            }
+            EdgeLink srcLink = getEdgeLink(srcHost, true);
+            EdgeLink dstLink = getEdgeLink(dstHost, false);
+
+
+            // --- Four Step by Mao. ---
+
+            Set<List<TopologyEdge>> allRoutes = findAllRoutes(topo, srcLink.dst().deviceId(), dstLink.src().deviceId());
+
+            Set<Path> allPaths = calculateRoutesCost(allRoutes);
+
+            Path linkPath = selectRoute(allPaths);
+
+            Path wholePath = buildWholePath(srcLink, dstLink, linkPath);
+
+            //use Set to be compatible with ONOS API
+            return wholePath != null ? ImmutableSet.of(wholePath) : ImmutableSet.of();
+
+        } else {
+            //use Set to be compatible with ONOS API
+            return ImmutableSet.of();
+        }
+    }
+
+    /**
+     * Generate EdgeLink which is between Host and Device.
+     * Tool for getLoadBalancePaths().
+     *
+     * @param host
+     * @param isIngress whether it is Ingress to Device or not.
+     * @return
+     */
+    private EdgeLink getEdgeLink(Host host, boolean isIngress) {
+        return new DefaultEdgeLink(routeProviderId, new ConnectPoint(host.id(), PortNumber.portNumber(0)),
+                host.location(), isIngress);
+    }
+
+    //=================== Step One: Find routes =====================
+
+    /**
+     * Entry for find all Paths between Src and Dst.
+     * By Mao.
+     *
+     * @param src  Src of Path.
+     * @param dst  Dst of Path.
+     * @param topo Topology, MUST be an Object of DefaultTopology now.
+     */
+    private Set<List<TopologyEdge>> findAllRoutes(Topology topo, DeviceId src, DeviceId dst) {
+        if (!(topo instanceof DefaultTopology)) {
+            log.error("topology is not the object of DefaultTopology.");
+            return ImmutableSet.of();
+        }
+
+        Set<List<TopologyEdge>> graghResult = new HashSet<>();
+        dfsFindAllRoutes(new DefaultTopologyVertex(src), new DefaultTopologyVertex(dst),
+                new ArrayList<>(), new ArrayList<>(),
+                ((DefaultTopology) topo).getGraph(), graghResult);
+
+        return graghResult;
+    }
+
+    /**
+     * Get all possible path between Src and Dst using DFS, by Mao.
+     * DFS Core, Recursion Part.
+     *
+     * @param src          Source point per Recursion
+     * @param dst          Final Objective
+     * @param passedLink   dynamic, record passed links in real time
+     * @param passedDevice dynamic, record entered devices in real time, to avoid loop
+     * @param topoGraph    represent the whole world
+     * @param result       Set of all Paths.
+     * @return no use.
+     */
+    private void dfsFindAllRoutes(TopologyVertex src,
+                                  TopologyVertex dst,
+                                  List<TopologyEdge> passedLink,
+                                  List<TopologyVertex> passedDevice,
+                                  TopologyGraph topoGraph,
+                                  Set<List<TopologyEdge>> result) {
+        if (src.equals(dst))
+            return;
+
+        passedDevice.add(src);
+
+        Set<TopologyEdge> egressSrc = topoGraph.getEdgesFrom(src);
+        egressSrc.forEach(egress -> {
+            TopologyVertex vertexDst = egress.dst();
+            if (vertexDst.equals(dst)) {
+                //Gain a Path
+                passedLink.add(egress);
+                result.add(ImmutableList.copyOf(passedLink.iterator()));
+                passedLink.remove(egress);
+
+            } else if (!passedDevice.contains(vertexDst)) {
+                //DFS into
+                passedLink.add(egress);
+                dfsFindAllRoutes(vertexDst, dst, passedLink, passedDevice, topoGraph, result);
+                passedLink.remove(egress);
+
+            } else {
+                //means - passedDevice.contains(vertexDst)
+                //We hit a loop, NOT go into
+            }
+        });
+
+        passedDevice.remove(src);
+    }
+
+    /**
+     * Parse several TopologyEdge(s) to one Path.
+     * Tool for findAllPaths.
+     */
+    private List<Link> parseEdgeToLink(List<TopologyEdge> edges) {
+        List<Link> links = new ArrayList<>();
+        edges.forEach(edge -> links.add(edge.link()));
+        return links;
+    }
+
+    //=================== Step Two: Calculate Cost =====================
+
+    private Set<Path> calculateRoutesCost(Set<List<TopologyEdge>> routes) {
+
+        Set<Path> paths = new HashSet<>();
+
+        routes.forEach(route -> {
+            double cost = maxLinkWeight(route);
+            paths.add(parseEdgeToPath(route, cost));
+        });
+
+        return paths;
+    }
+
+    /**
+     * A strategy to calculate the weight of one path.
+     */
+    private double maxLinkWeight(List<TopologyEdge> edges) {
+
+        double weight = 0;
+        for (TopologyEdge edge : edges) {
+            double linkWeight = linkWeightTool.weight(edge);
+            weight = weight < linkWeight ? linkWeight : weight;
+        }
+        return weight;
+    }
+
+    /**
+     * Parse several TopologyEdge(s) to one Path.
+     * Tool for calculateRoutesWeight().
+     */
+    private Path parseEdgeToPath(List<TopologyEdge> edges, double cost) {
+
+        ArrayList links = new ArrayList();
+        edges.forEach(edge -> links.add(edge.link()));
+
+        return new DefaultPath(routeProviderId, links, cost);
+    }
+
+    //=================== Step Three: Select one route(Path) =====================
+
+    private Path selectRoute(Set<Path> paths) {
+        if (paths.size() < 1)
+            return null;
+
+        return getMinCostMinHopPath(new ArrayList(paths));
+    }
+
+    /**
+     * A strategy to select one best Path.
+     *
+     * @param paths
+     * @return whose max cost of all links is lowest.
+     */
+    private Path getMinCostPath(List<Path> paths) {
+        Path result = paths.get(0);
+        for (int i = 1, pathCount = paths.size(); i < pathCount; i++) {
+            Path temp = paths.get(i);
+            result = result.cost() > temp.cost() ? temp : result;
+        }
+        return result;
+    }
+
+    /**
+     * A strategy to select one best Path.
+     *
+     * @param paths
+     * @return whose count of all links is lowest.
+     */
+    private Path getMinHopPath(List<Path> paths) {
+        Path result = paths.get(0);
+        for (int i = 1, pathCount = paths.size(); i < pathCount; i++) {
+            Path temp = paths.get(i);
+            result = result.links().size() > temp.links().size() ? temp : result;
+        }
+        return result;
+    }
+
+    /**
+     * An integrated strategy to select one best Path.
+     *
+     * @param paths
+     * @return whose count of all links is lowest.
+     */
+    private Path getMinCostMinHopPath(List<Path> paths) {
+
+        final double MEASURE_TOLERANCE = 0.05; // 0.05% represent 5M(10G), 12.5M(25G), 50M(100G)
+
+        //Sort by Cost in order
+        paths.sort((p1, p2) -> p1.cost() > p2.cost() ? 1 : (p1.cost() < p2.cost() ? -1 : 0));
+
+        // get paths with similar lowest cost within MEASURE_TOLERANCE range.
+        List<Path> minCostPaths = new ArrayList<>();
+        Path result = paths.get(0);
+        minCostPaths.add(result);
+        for (int i = 1, pathCount = paths.size(); i < pathCount; i++) {
+            Path temp = paths.get(i);
+            if (temp.cost() - result.cost() < MEASURE_TOLERANCE) {
+                minCostPaths.add(temp);
+            }
+        }
+
+        result = getMinHopPath(minCostPaths);
+
+        return result;
+    }
+    //=================== Step Four: Build whole Path, with edge links =====================
+
+    /**
+     * @param srcLink
+     * @param dstLink
+     * @param linkPath
+     * @return At least, Path will include two edge links.
+     */
+    private Path buildWholePath(EdgeLink srcLink, EdgeLink dstLink, Path linkPath) {
+        if (linkPath == null && !(srcLink.dst().deviceId().equals(dstLink.src().deviceId()))) {
+            log.warn("no available Path is found!");
+            return null;
+        }
+
+        return buildEdgeToEdgePath(srcLink, dstLink, linkPath);
+    }
+
+    /**
+     * Produces a direct edge-to-edge path.
+     *
+     * @param srcLink
+     * @param dstLink
+     * @param linkPath
+     * @return
+     */
+    private Path buildEdgeToEdgePath(EdgeLink srcLink, EdgeLink dstLink, Path linkPath) {
+
+        List<Link> links = Lists.newArrayListWithCapacity(2);
+
+        double cost = 0;
+
+        //The cost of edge link is 0.
+        links.add(srcLink);
+
+        if (linkPath != null) {
+            links.addAll(linkPath.links());
+            cost += linkPath.cost();
+        }
+
+        links.add(dstLink);
+
+        return new DefaultPath(routeProviderId, links, cost);
+    }
+
+    //=================== The End =====================
+
+
+    /**
+     * Tool for calculating weight value for each Link(TopologyEdge).
+     *
+     * @author Mao.
+     */
     private class BandwidthLinkWeight implements LinkWeight {
 
-        private static final double LINK_LINE_SPEED = 10000000000.0; // 10Gbps
-        private static final double LINK_WEIGHT_DOWN = -1.0;
-        private static final double LINK_WEIGHT_FULL = 0.0;
+        //        private static final double LINK_LINE_SPEED = 10000000000.0; // 10Gbps
+        private static final double LINK_WEIGHT_DOWN = 100.0;
+        private static final double LINK_WEIGHT_FULL = 100.0;
 
         //FIXME - Bata1: Here, assume the edge is the inter-demain link
         @Override
-        public double weight(TopologyEdge edge){
+        public double weight(TopologyEdge edge) {
 
-            if(edge.link().state() == Link.State.INACTIVE) {
+            if (edge.link().state() == Link.State.INACTIVE) {
                 return LINK_WEIGHT_DOWN;
             }
 
 
+            long linkLineSpeed = getLinkLineSpeed(edge.link());
+
             //FIXME - Bata1: Here, assume the value in the map is the rest bandwidth of inter-demain link
-            long interLinkRestBandwidth =  vportCapabilityMap.get(edge.link());
+            long interLinkRestBandwidth = linkLineSpeed - getLinkLoadSpeed(edge.link());
 
             if (interLinkRestBandwidth <= 0) {
                 return LINK_WEIGHT_FULL;
             }
-            double restBandwidthPersent = interLinkRestBandwidth / LINK_LINE_SPEED * 100;
-            return restBandwidthPersent;
+
+            return 100 - interLinkRestBandwidth * 1.0 / linkLineSpeed * 100;//restBandwidthPersent
         }
+
+        private long getLinkLineSpeed(Link link) {
+
+            long srcSpeed = getPortLineSpeed(link.src());
+            long dstSpeed = getPortLineSpeed(link.dst());
+
+            return min(srcSpeed, dstSpeed);
+        }
+
+        private long getLinkLoadSpeed(Link link) {
+
+            long srcSpeed = getPortLoadSpeed(link.src());
+            long dstSpeed = getPortLoadSpeed(link.dst());
+
+            return max(srcSpeed, dstSpeed);
+        }
+
+        /**
+         * Unit: bps
+         *
+         * @param port
+         * @return
+         */
+        private long getPortLoadSpeed(ConnectPoint port) {
+
+            return portStatisticsService.load(port).rate() * 8;//data source: Bps
+
+        }
+
+        /**
+         * Unit bps
+         *
+         * @param port
+         * @return
+         */
+        private long getPortLineSpeed(ConnectPoint port) {
+
+            assert port.elementId() instanceof DeviceId;
+            return deviceService.getPort(port.deviceId(), port.port()).portSpeed() * 1000000;//data source: Mbps
+
+        }
+
+        private long max(long a, long b) {
+            return a > b ? a : b;
+        }
+
+        private long min(long a, long b) {
+            return a < b ? a : b;
+        }
+
     }
+
+
 
 
 
