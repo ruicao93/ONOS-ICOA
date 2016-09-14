@@ -330,7 +330,7 @@ public class MaoRoutingManager implements MaoRoutingService {
      */
     private Set<List<TopologyEdge>> findAllRoutes(Topology topo, DeviceId src, DeviceId dst) {
         if (!(topo instanceof DefaultTopology)) {
-            log.warn("topology is not the object of DefaultTopology.");
+            log.error("topology is not the object of DefaultTopology.");
             return ImmutableSet.of();
         }
 
@@ -517,7 +517,7 @@ public class MaoRoutingManager implements MaoRoutingService {
      */
     private Path buildWholePath(EdgeLink srcLink, EdgeLink dstLink, Path linkPath) {
         if (linkPath == null && !(srcLink.dst().deviceId().equals(dstLink.src().deviceId()))) {
-            log.warn("Mao: linkPath is null! no available Path is found!");
+            log.warn("no available Path is found!");
             return null;
         }
 
@@ -541,7 +541,7 @@ public class MaoRoutingManager implements MaoRoutingService {
         //The cost of edge link is 0.
         links.add(srcLink);
 
-        if(linkPath != null){
+        if (linkPath != null) {
             links.addAll(linkPath.links());
             cost += linkPath.cost();
         }
@@ -562,8 +562,8 @@ public class MaoRoutingManager implements MaoRoutingService {
     private class BandwidthLinkWeight implements LinkWeight {
 
         //        private static final double LINK_LINE_SPEED = 10000000000.0; // 10Gbps
-        private static final double LINK_WEIGHT_DOWN = -1.0;
-        private static final double LINK_WEIGHT_FULL = 0.0;
+        private static final double LINK_WEIGHT_DOWN = 100.0;
+        private static final double LINK_WEIGHT_FULL = 100.0;
 
         //FIXME - Bata1: Here, assume the edge is the inter-demain link
         @Override
@@ -573,24 +573,17 @@ public class MaoRoutingManager implements MaoRoutingService {
                 return LINK_WEIGHT_DOWN;
             }
 
-            try {
 
-                long linkLineSpeed = getLinkLineSpeed(edge.link());
+            long linkLineSpeed = getLinkLineSpeed(edge.link());
 
-                //FIXME - Bata1: Here, assume the value in the map is the rest bandwidth of inter-demain link
-                long interLinkRestBandwidth = linkLineSpeed - getLinkLoadSpeed(edge.link());
+            //FIXME - Bata1: Here, assume the value in the map is the rest bandwidth of inter-demain link
+            long interLinkRestBandwidth = linkLineSpeed - getLinkLoadSpeed(edge.link());
 
-                if (interLinkRestBandwidth <= 0) {
-                    return LINK_WEIGHT_FULL;
-                }
-
-                double restBandwidthPersent = 100 - interLinkRestBandwidth * 1.0 / linkLineSpeed * 100;
-                return restBandwidthPersent;
-            } catch (Exception e) {
-                int a = 1;
-                return 0;
+            if (interLinkRestBandwidth <= 0) {
+                return LINK_WEIGHT_FULL;
             }
 
+            return 100 - interLinkRestBandwidth * 1.0 / linkLineSpeed * 100;//restBandwidthPersent
         }
 
         private long getLinkLineSpeed(Link link) {
@@ -598,28 +591,16 @@ public class MaoRoutingManager implements MaoRoutingService {
             long srcSpeed = getPortLineSpeed(link.src());
             long dstSpeed = getPortLineSpeed(link.dst());
 
-            assert srcSpeed == dstSpeed;
-            return srcSpeed;
+            return min(srcSpeed, dstSpeed);
         }
 
         private long getLinkLoadSpeed(Link link) {
 
-            if (link == null || link.src() == null || link.dst() == null) {
-                int a = 0;
-            }
             long srcSpeed = getPortLoadSpeed(link.src());
             long dstSpeed = getPortLoadSpeed(link.dst());
 
             return max(srcSpeed, dstSpeed);
         }
-
-//        private long getLinkRestSpeed(Link link){
-//
-//            long srcSpeed = getPortLoadSpeed(link.src());
-//            long dstSpeed = getPortLoadSpeed(link.dst());
-//
-//            return max(srcSpeed, dstSpeed);
-//        }
 
         /**
          * Unit: bps
