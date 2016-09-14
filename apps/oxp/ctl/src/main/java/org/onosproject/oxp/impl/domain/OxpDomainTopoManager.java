@@ -231,7 +231,14 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         if (domainController.isCapBwSet()) {
             Port port = deviceService.getPort(connectPoint.deviceId(), connectPoint.port());
             long vportMaxSpeed = port.portSpeed() * 1000 * 1000;  //Bps
-            long vportCurSpeed = portStatisticsService.load(connectPoint).rate() * 8;//data source: Bps
+            long vportCurSpeed =0;
+            try {
+                vportCurSpeed = portStatisticsService.load(connectPoint).rate() * 8;//data source: Bps
+            } catch (Exception e) {
+                log.info("Get port rate error.");
+                return 0;
+            }
+
             return vportMaxSpeed - vportCurSpeed;
         } else if (domainController.isCapDelaySet()) {
             return 0;
