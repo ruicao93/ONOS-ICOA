@@ -177,7 +177,8 @@ public class MaoRoutingManager implements MaoRoutingService {
 
                 Set<Path> paths = getLoadBalancePaths(srcHostId, dstHostId);
                 if (paths.isEmpty()) {
-                    log.warn("paths is Empty !!!");
+                    log.warn("paths is Empty !!! no Path is available");
+                    context.block();
                     return;
                 }
 
@@ -189,7 +190,7 @@ public class MaoRoutingManager implements MaoRoutingService {
                         .build();
 
                 boolean isContain;
-                synchronized(mapLock) {
+                synchronized (mapLock) {
                     isContain = intentMap.containsKey(selector.criteria());
                 }
                 if (isContain) {
@@ -202,7 +203,7 @@ public class MaoRoutingManager implements MaoRoutingService {
                 log.info("\n------ Mao Path Info ------\nSrc:{}, Dst:{}\n{}",
                         IpPrefix.valueOf(ipPkt.getSourceAddress(), 32).toString(),
                         IpPrefix.valueOf(ipPkt.getDestinationAddress(), 32),
-                        result.links().toString().replace("Default","\n"));
+                        result.links().toString().replace("Default", "\n"));
 
                 PathIntent pathIntent = PathIntent.builder()
                         .path(result)
@@ -229,11 +230,32 @@ public class MaoRoutingManager implements MaoRoutingService {
 
     ProviderId routeProviderId = new ProviderId("FNL", "Mao");
 
+    /**
+     * Compatible Entry of routing function.
+     *
+     * @param src
+     * @param dst
+     * @return empty Set if
+     * 1. no path found
+     * 2. given srcHost or dstHost is not discovered by ONOS
+     * 3. given srcDevice and dstDevice are identical one.
+     */
     private Set<Path> getLoadBalancePaths(ElementId src, ElementId dst) {
         Topology currentTopo = topologyService.currentTopology();
         return getLoadBalancePaths(currentTopo, src, dst);
     }
 
+    /**
+     * Core Entry of routing function.
+     *
+     * @param topo
+     * @param src
+     * @param dst
+     * @return empty Set if
+     * 1. no path found
+     * 2. given srcHost or dstHost is not discovered by ONOS
+     * 3. given srcDevice and dstDevice are identical one.
+     */
     private Set<Path> getLoadBalancePaths(Topology topo, ElementId src, ElementId dst) {
 
         if (src instanceof DeviceId && dst instanceof DeviceId) {
@@ -338,6 +360,9 @@ public class MaoRoutingManager implements MaoRoutingService {
                                   List<TopologyVertex> passedDevice,
                                   TopologyGraph topoGraph,
                                   Set<List<TopologyEdge>> result) {
+        if (src.equals(dst))
+            return;
+
         passedDevice.add(src);
 
         Set<TopologyEdge> egressSrc = topoGraph.getEdgesFrom(src);
@@ -353,6 +378,8 @@ public class MaoRoutingManager implements MaoRoutingService {
                 //DFS into
                 passedLink.add(egress);
                 dfsFindAllRoutes(vertexDst, dst, passedLink, passedDevice, topoGraph, result);
+                passedLink.remove(egress);
+
             } else {
                 //means - passedDevice.contains(vertexDst)
                 //We hit a loop, NOT go into
@@ -436,6 +463,7 @@ public class MaoRoutingManager implements MaoRoutingService {
         }
         return result;
     }
+
     /**
      * A strategy to select one best Path.
      *
@@ -450,6 +478,7 @@ public class MaoRoutingManager implements MaoRoutingService {
         }
         return result;
     }
+
     /**
      * An integrated strategy to select one best Path.
      *
@@ -460,15 +489,8 @@ public class MaoRoutingManager implements MaoRoutingService {
 
         final double MEASURE_TOLERANCE = 0.05; // 0.05% represent 5M(10G), 12.5M(25G), 50M(100G)
 
-        //Sort by Cost
-        paths.sort((p1,p2)->{
-            if(p1.cost()>p2.cost())
-                return 1;
-            else if(p1.cost()<p2.cost())
-                return -1;
-            else
-                return 0;
-        });
+        //Sort by Cost in order
+        paths.sort((p1, p2) -> p1.cost() > p2.cost() ? 1 : (p1.cost() < p2.cost() ? -1 : 0));
 
         // get paths with similar lowest cost within MEASURE_TOLERANCE range.
         List<Path> minCostPaths = new ArrayList<>();
@@ -476,7 +498,7 @@ public class MaoRoutingManager implements MaoRoutingService {
         minCostPaths.add(result);
         for (int i = 1, pathCount = paths.size(); i < pathCount; i++) {
             Path temp = paths.get(i);
-            if(temp.cost() - result.cost() < MEASURE_TOLERANCE){
+            if (temp.cost() - result.cost() < MEASURE_TOLERANCE) {
                 minCostPaths.add(temp);
             }
         }
@@ -487,9 +509,15 @@ public class MaoRoutingManager implements MaoRoutingService {
     }
     //=================== Step Four: Build whole Path, with edge links =====================
 
+    /**
+     * @param srcLink
+     * @param dstLink
+     * @param linkPath
+     * @return At least, Path will include two edge links.
+     */
     private Path buildWholePath(EdgeLink srcLink, EdgeLink dstLink, Path linkPath) {
-        if (linkPath == null) {
-            log.warn("linkPath is null!");
+        if (linkPath == null && !(srcLink.dst().deviceId().equals(dstLink.src().deviceId()))) {
+            log.warn("Mao: linkPath is null! no available Path is found!");
             return null;
         }
 
@@ -508,12 +536,19 @@ public class MaoRoutingManager implements MaoRoutingService {
 
         List<Link> links = Lists.newArrayListWithCapacity(2);
 
+        double cost = 0;
+
         //The cost of edge link is 0.
         links.add(srcLink);
-        links.addAll(linkPath.links());
+
+        if(linkPath != null){
+            links.addAll(linkPath.links());
+            cost += linkPath.cost();
+        }
+
         links.add(dstLink);
 
-        return new DefaultPath(routeProviderId, links, linkPath.cost());
+        return new DefaultPath(routeProviderId, links, cost);
     }
 
     //=================== The End =====================
