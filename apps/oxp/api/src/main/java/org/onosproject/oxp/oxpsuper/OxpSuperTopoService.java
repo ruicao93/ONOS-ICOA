@@ -5,6 +5,7 @@ import org.onosproject.net.*;
 import org.onosproject.net.topology.LinkWeight;
 import org.onosproject.net.*;
 import org.onosproject.net.device.DeviceInterfaceDescription;
+import org.onosproject.net.topology.Topology;
 import org.onosproject.oxp.protocol.OXPVportDesc;
 import org.onosproject.oxp.types.OXPHost;
 import org.onosproject.oxp.types.OXPInternalLink;
@@ -43,8 +44,23 @@ public interface OxpSuperTopoService {
 
     Set<Path> getPaths(DeviceId src, DeviceId dst, LinkWeight weight);
 
-    // just one best Path is returned now.
-    Set<Path> getLoadBalancePaths(DeviceId src, DeviceId dst);
+    /**
+     * Core Entry of routing function.
+     * just one best Path is returned now.
+     *
+     * @param topo
+     * @param src
+     * @param dst
+     * @param linkWeight
+     * @return empty Set if
+     * 1. no path found
+     * 2. given srcHost or dstHost is not discovered by ONOS
+     * 3. given srcDevice and dstDevice are identical one.
+     */
+    Set<Path> getLoadBalancePaths(Topology topo, ElementId src, ElementId dst, LinkWeight linkWeight);
+    Set<Path> getLoadBalancePaths(Topology topo, ElementId src, ElementId dst);
+    Set<Path> getLoadBalancePaths(ElementId src, ElementId dst, LinkWeight linkWeight);
+    Set<Path> getLoadBalancePaths(ElementId src, ElementId dst);
 
     long getInterLinkCount();
 

@@ -18,12 +18,8 @@ package org.fnl.impl;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
-import com.sun.org.apache.bcel.internal.generic.NOP;
 import org.apache.felix.scr.annotations.*;
-
 import org.fnl.intf.MaoRoutingService;
-import org.onlab.packet.EthType;
 import org.onlab.packet.Ethernet;
 import org.onlab.packet.IPv4;
 import org.onlab.packet.IpPrefix;
@@ -36,21 +32,17 @@ import org.onosproject.net.device.DeviceService;
 import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
 import org.onosproject.net.flow.TrafficSelector;
-import org.onosproject.net.flow.TrafficTreatment;
-import org.onosproject.net.flow.criteria.Criteria;
 import org.onosproject.net.flow.criteria.Criterion;
-import org.onosproject.net.flow.criteria.IPCriterion;
-import org.onosproject.net.flowobjective.DefaultForwardingObjective;
-import org.onosproject.net.flowobjective.ForwardingObjective;
 import org.onosproject.net.host.HostService;
-import org.onosproject.net.intent.*;
+import org.onosproject.net.intent.Intent;
+import org.onosproject.net.intent.IntentService;
+import org.onosproject.net.intent.PathIntent;
 import org.onosproject.net.link.LinkService;
 import org.onosproject.net.packet.PacketContext;
 import org.onosproject.net.packet.PacketPriority;
 import org.onosproject.net.packet.PacketProcessor;
 import org.onosproject.net.packet.PacketService;
 import org.onosproject.net.provider.ProviderId;
-import org.onosproject.net.statistic.Load;
 import org.onosproject.net.topology.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -156,46 +148,37 @@ public class MaoRoutingManager implements MaoRoutingService {
     }
 
 
-
     private Map<Set<Criterion>, Intent> intentMap;
 
     private InternalPacketProcessor packetProcessor = new InternalPacketProcessor();
 
     private class InternalPacketProcessor implements PacketProcessor {
 
-        private volatile int count = 0;
-        private Integer lock = 0;
+        //        private volatile int count = 0;
+//        private Integer lock = 0;
+        private Integer mapLock = 0;
+
 
         @Override
         public void process(PacketContext context) {
 
-            synchronized (lock) {
+//            synchronized (lock) {
 //                if (context.isHandled() || count > 0) {
-                if (context.isHandled()) {
-
-                    return;
-
-                }
+            if (context.isHandled()) {
+                return;
             }
+//            }
 
             Ethernet pkt = context.inPacket().parsed();
             if (pkt.getEtherType() == Ethernet.TYPE_IPV4) {
 
-                Host srcHost = hostService.getHost(HostId.hostId(pkt.getSourceMAC()));
-                Host dstHost = hostService.getHost(HostId.hostId(pkt.getDestinationMAC()));
-                if (srcHost == null || dstHost == null) {
-                    log.warn("Routing but Host is null, not found");
-                    return;
-                }
+                HostId srcHostId = HostId.hostId(pkt.getSourceMAC());
+                HostId dstHostId = HostId.hostId(pkt.getDestinationMAC());
 
-//                try {
-
-                DeviceId srcDevice = srcHost.location().deviceId();
-                DeviceId dstDevice = dstHost.location().deviceId();
-
-                Set<Path> qingdao = getLoadBalancePaths(srcDevice, dstDevice);
-                if (qingdao.isEmpty()) {
-                    log.warn("Mao: qingdao is Empty !!!");
+                Set<Path> paths = getLoadBalancePaths(srcHostId, dstHostId);
+                if (paths.isEmpty()) {
+                    log.warn("paths is Empty !!! no Path is available");
+                    context.block();
                     return;
                 }
 
@@ -205,43 +188,37 @@ public class MaoRoutingManager implements MaoRoutingService {
                         .matchIPSrc(IpPrefix.valueOf(ipPkt.getSourceAddress(), 32))
                         .matchIPDst(IpPrefix.valueOf(ipPkt.getDestinationAddress(), 32))
                         .build();
-                if (intentMap.containsKey(selector.criteria())) {
+
+                boolean isContain;
+                synchronized (mapLock) {
+                    isContain = intentMap.containsKey(selector.criteria());
+                }
+                if (isContain) {
                     context.block();
                     return;
                 }
 
 
-                Path wholePath = getEdgeToEdgePath(
-                        getEdgeLink(srcHost, true),
-                        getEdgeLink(dstHost, false),
-                        qingdao.iterator().next());
+                Path result = paths.iterator().next();
+                log.info("\n------ Mao Path Info ------\nSrc:{}, Dst:{}\n{}",
+                        IpPrefix.valueOf(ipPkt.getSourceAddress(), 32).toString(),
+                        IpPrefix.valueOf(ipPkt.getDestinationAddress(), 32),
+                        result.links().toString().replace("Default", "\n"));
 
                 PathIntent pathIntent = PathIntent.builder()
-                        .path(wholePath)
+                        .path(result)
                         .appId(appId)
-                        .priority(63355)
+                        .priority(65432)
                         .selector(selector)
                         .treatment(DefaultTrafficTreatment.emptyTreatment())
                         .build();
-
-//                HostToHostIntent hostToHostIntent = HostToHostIntent.builder()
-//                        .appId(appId)
-//                        .one(HostId.hostId(pkt.getSourceMAC()))
-//                        .two(HostId.hostId(pkt.getDestinationMAC()))
-//                        .selector(selector)
-//                        .treatment(DefaultTrafficTreatment.emptyTreatment())
-//                        .priority(33333)
-//                        .build();
-
                 intentService.submit(pathIntent);
-                intentMap.put(selector.criteria(), pathIntent);
-//                }
-//                catch(Exception e){
-//                    int a= 1;
-//                }
-                synchronized (lock) {
-                    count++;
+                synchronized (mapLock) {
+                    intentMap.put(selector.criteria(), pathIntent);
                 }
+//                synchronized (lock) {
+//                    count++;
+//                }
 
                 context.block();
             }
@@ -249,45 +226,97 @@ public class MaoRoutingManager implements MaoRoutingService {
     }
 
 
-
-    private ProviderId providerId = new ProviderId("fnl", "org.fnl.test");
-
-
-//    @Deprecated
-//    private Set<Path> getLoadBalancePaths(DeviceId src, DeviceId dst) {
-//        Topology currentTopo = topologyService.currentTopology();
-//        Set<Path> paths = topologyService.getPaths(currentTopo, src, dst, bandwidthLinkWeightTool);
-//        if (paths.size() > 1) {
-//            int a = 0;
-//        }
-//        return paths;
-//    }
-
-
-
-
     //=================== Start =====================
 
+    ProviderId routeProviderId = new ProviderId("FNL", "Mao");
 
-    private Set<Path> getLoadBalancePaths(DeviceId src, DeviceId dst) {
+    /**
+     * Compatible Entry of routing function.
+     *
+     * @param src
+     * @param dst
+     * @return empty Set if
+     * 1. no path found
+     * 2. given srcHost or dstHost is not discovered by ONOS
+     * 3. given srcDevice and dstDevice are identical one.
+     */
+    private Set<Path> getLoadBalancePaths(ElementId src, ElementId dst) {
         Topology currentTopo = topologyService.currentTopology();
         return getLoadBalancePaths(currentTopo, src, dst);
     }
 
-    private Set<Path> getLoadBalancePaths(Topology topo, DeviceId src, DeviceId dst) {
+    /**
+     * Core Entry of routing function.
+     *
+     * @param topo
+     * @param src
+     * @param dst
+     * @return empty Set if
+     * 1. no path found
+     * 2. given srcHost or dstHost is not discovered by ONOS
+     * 3. given srcDevice and dstDevice are identical one.
+     */
+    private Set<Path> getLoadBalancePaths(Topology topo, ElementId src, ElementId dst) {
 
-        // Three Step by Mao.
+        if (src instanceof DeviceId && dst instanceof DeviceId) {
 
-        Set<List<TopologyEdge>> allRoutes = findAllRoutes(topo, src, dst);
+            // no need to create edge link.
+            // --- Three Step by Mao. ---
 
-        Set<Path> allPaths = calculateRoutesCost(allRoutes);
+            Set<List<TopologyEdge>> allRoutes = findAllRoutes(topo, (DeviceId) src, (DeviceId) dst);
 
-        Path path = selectRoute(allPaths);
+            Set<Path> allPaths = calculateRoutesCost(allRoutes);
 
-        //use Set to be compatible with ONOS API
-        return ImmutableSet.of(path);
+            Path linkPath = selectRoute(allPaths);
+
+
+            //use Set to be compatible with ONOS API
+            return linkPath != null ? ImmutableSet.of(linkPath) : ImmutableSet.of();
+
+        } else if (src instanceof HostId && dst instanceof HostId) {
+
+
+            Host srcHost = hostService.getHost((HostId) src);
+            Host dstHost = hostService.getHost((HostId) dst);
+            if (srcHost == null || dstHost == null) {
+                log.warn("Generate whole path but found null, hostSrc:{}, hostDst:{}", srcHost, dstHost);
+                return ImmutableSet.of();
+            }
+            EdgeLink srcLink = getEdgeLink(srcHost, true);
+            EdgeLink dstLink = getEdgeLink(dstHost, false);
+
+
+            // --- Four Step by Mao. ---
+
+            Set<List<TopologyEdge>> allRoutes = findAllRoutes(topo, srcLink.dst().deviceId(), dstLink.src().deviceId());
+
+            Set<Path> allPaths = calculateRoutesCost(allRoutes);
+
+            Path linkPath = selectRoute(allPaths);
+
+            Path wholePath = buildWholePath(srcLink, dstLink, linkPath);
+
+            //use Set to be compatible with ONOS API
+            return wholePath != null ? ImmutableSet.of(wholePath) : ImmutableSet.of();
+
+        } else {
+            //use Set to be compatible with ONOS API
+            return ImmutableSet.of();
+        }
     }
 
+    /**
+     * Generate EdgeLink which is between Host and Device.
+     * Tool for getLoadBalancePaths().
+     *
+     * @param host
+     * @param isIngress whether it is Ingress to Device or not.
+     * @return
+     */
+    private EdgeLink getEdgeLink(Host host, boolean isIngress) {
+        return new DefaultEdgeLink(routeProviderId, new ConnectPoint(host.id(), PortNumber.portNumber(0)),
+                host.location(), isIngress);
+    }
 
     //=================== Step One: Find routes =====================
 
@@ -301,7 +330,7 @@ public class MaoRoutingManager implements MaoRoutingService {
      */
     private Set<List<TopologyEdge>> findAllRoutes(Topology topo, DeviceId src, DeviceId dst) {
         if (!(topo instanceof DefaultTopology)) {
-            log.warn("topology is not the object of DefaultTopology.");
+            log.error("topology is not the object of DefaultTopology.");
             return ImmutableSet.of();
         }
 
@@ -331,6 +360,9 @@ public class MaoRoutingManager implements MaoRoutingService {
                                   List<TopologyVertex> passedDevice,
                                   TopologyGraph topoGraph,
                                   Set<List<TopologyEdge>> result) {
+        if (src.equals(dst))
+            return;
+
         passedDevice.add(src);
 
         Set<TopologyEdge> egressSrc = topoGraph.getEdgesFrom(src);
@@ -346,6 +378,8 @@ public class MaoRoutingManager implements MaoRoutingService {
                 //DFS into
                 passedLink.add(egress);
                 dfsFindAllRoutes(vertexDst, dst, passedLink, passedDevice, topoGraph, result);
+                passedLink.remove(egress);
+
             } else {
                 //means - passedDevice.contains(vertexDst)
                 //We hit a loop, NOT go into
@@ -365,11 +399,9 @@ public class MaoRoutingManager implements MaoRoutingService {
         return links;
     }
 
-
     //=================== Step Two: Calculate Cost =====================
 
     private BandwidthLinkWeight bandwidthLinkWeightTool = new BandwidthLinkWeight();
-    ProviderId getPathsId = new ProviderId("FNL", "Mao");
 
     private Set<Path> calculateRoutesCost(Set<List<TopologyEdge>> routes) {
 
@@ -405,7 +437,7 @@ public class MaoRoutingManager implements MaoRoutingService {
         ArrayList links = new ArrayList();
         edges.forEach(edge -> links.add(edge.link()));
 
-        return new DefaultPath(getPathsId, links, cost);
+        return new DefaultPath(routeProviderId, links, cost);
     }
 
     //=================== Step Three: Select one route(Path) =====================
@@ -414,11 +446,14 @@ public class MaoRoutingManager implements MaoRoutingService {
         if (paths.size() < 1)
             return null;
 
-        return getMinCostPath(new ArrayList(paths));
+        return getMinCostMinHopPath(new ArrayList(paths));
     }
 
     /**
      * A strategy to select one best Path.
+     *
+     * @param paths
+     * @return whose max cost of all links is lowest.
      */
     private Path getMinCostPath(List<Path> paths) {
         Path result = paths.get(0);
@@ -429,71 +464,106 @@ public class MaoRoutingManager implements MaoRoutingService {
         return result;
     }
 
-    //=================== Step Four: Build whole Path, with edge links =====================
-
-    private
-
-    private EdgeLink getEdgeLink(Host host, boolean isIngress) {
-        return new DefaultEdgeLink(providerId, new ConnectPoint(host.id(), PortNumber.portNumber(0)),
-                host.location(), isIngress);
+    /**
+     * A strategy to select one best Path.
+     *
+     * @param paths
+     * @return whose count of all links is lowest.
+     */
+    private Path getMinHopPath(List<Path> paths) {
+        Path result = paths.get(0);
+        for (int i = 1, pathCount = paths.size(); i < pathCount; i++) {
+            Path temp = paths.get(i);
+            result = result.links().size() > temp.links().size() ? temp : result;
+        }
+        return result;
     }
 
+    /**
+     * An integrated strategy to select one best Path.
+     *
+     * @param paths
+     * @return whose count of all links is lowest.
+     */
+    private Path getMinCostMinHopPath(List<Path> paths) {
+
+        final double MEASURE_TOLERANCE = 0.05; // 0.05% represent 5M(10G), 12.5M(25G), 50M(100G)
+
+        //Sort by Cost in order
+        paths.sort((p1, p2) -> p1.cost() > p2.cost() ? 1 : (p1.cost() < p2.cost() ? -1 : 0));
+
+        // get paths with similar lowest cost within MEASURE_TOLERANCE range.
+        List<Path> minCostPaths = new ArrayList<>();
+        Path result = paths.get(0);
+        minCostPaths.add(result);
+        for (int i = 1, pathCount = paths.size(); i < pathCount; i++) {
+            Path temp = paths.get(i);
+            if (temp.cost() - result.cost() < MEASURE_TOLERANCE) {
+                minCostPaths.add(temp);
+            }
+        }
+
+        result = getMinHopPath(minCostPaths);
+
+        return result;
+    }
+    //=================== Step Four: Build whole Path, with edge links =====================
+
+    /**
+     * @param srcLink
+     * @param dstLink
+     * @param linkPath
+     * @return At least, Path will include two edge links.
+     */
+    private Path buildWholePath(EdgeLink srcLink, EdgeLink dstLink, Path linkPath) {
+        if (linkPath == null && !(srcLink.dst().deviceId().equals(dstLink.src().deviceId()))) {
+            log.warn("no available Path is found!");
+            return null;
+        }
+
+        return buildEdgeToEdgePath(srcLink, dstLink, linkPath);
+    }
 
     /**
      * Produces a direct edge-to-edge path.
      *
      * @param srcLink
      * @param dstLink
-     * @param path
+     * @param linkPath
      * @return
      */
-    private Path buildEdgeToEdgePath(EdgeLink srcLink, EdgeLink dstLink, Path path) {
-
-        if (srcLink == null || dstLink == null || path == null) {
-            log.warn("Generate EdgePath but found null");
-            return null;
-        }
+    private Path buildEdgeToEdgePath(EdgeLink srcLink, EdgeLink dstLink, Path linkPath) {
 
         List<Link> links = Lists.newArrayListWithCapacity(2);
+
         double cost = 0;
 
+        //The cost of edge link is 0.
         links.add(srcLink);
-        cost++;
 
-        links.addAll(path.links());
-        cost += path.cost();
+        if (linkPath != null) {
+            links.addAll(linkPath.links());
+            cost += linkPath.cost();
+        }
 
         links.add(dstLink);
-        cost++;
 
-        return new DefaultPath(providerId, links, cost);
+        return new DefaultPath(routeProviderId, links, cost);
     }
-
 
     //=================== The End =====================
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    /**
+     * Tool for calculating weight value for each Link(TopologyEdge).
+     *
+     * @author Mao.
+     */
     private class BandwidthLinkWeight implements LinkWeight {
 
         //        private static final double LINK_LINE_SPEED = 10000000000.0; // 10Gbps
-        private static final double LINK_WEIGHT_DOWN = -1.0;
-        private static final double LINK_WEIGHT_FULL = 0.0;
+        private static final double LINK_WEIGHT_DOWN = 100.0;
+        private static final double LINK_WEIGHT_FULL = 100.0;
 
         //FIXME - Bata1: Here, assume the edge is the inter-demain link
         @Override
@@ -503,24 +573,17 @@ public class MaoRoutingManager implements MaoRoutingService {
                 return LINK_WEIGHT_DOWN;
             }
 
-            try {
 
-                long linkLineSpeed = getLinkLineSpeed(edge.link());
+            long linkLineSpeed = getLinkLineSpeed(edge.link());
 
-                //FIXME - Bata1: Here, assume the value in the map is the rest bandwidth of inter-demain link
-                long interLinkRestBandwidth = linkLineSpeed - getLinkLoadSpeed(edge.link());
+            //FIXME - Bata1: Here, assume the value in the map is the rest bandwidth of inter-demain link
+            long interLinkRestBandwidth = linkLineSpeed - getLinkLoadSpeed(edge.link());
 
-                if (interLinkRestBandwidth <= 0) {
-                    return LINK_WEIGHT_FULL;
-                }
-
-                double restBandwidthPersent = 100 - interLinkRestBandwidth * 1.0 / linkLineSpeed * 100;
-                return restBandwidthPersent;
-            } catch (Exception e) {
-                int a = 1;
-                return 0;
+            if (interLinkRestBandwidth <= 0) {
+                return LINK_WEIGHT_FULL;
             }
 
+            return 100 - interLinkRestBandwidth * 1.0 / linkLineSpeed * 100;//restBandwidthPersent
         }
 
         private long getLinkLineSpeed(Link link) {
@@ -528,28 +591,16 @@ public class MaoRoutingManager implements MaoRoutingService {
             long srcSpeed = getPortLineSpeed(link.src());
             long dstSpeed = getPortLineSpeed(link.dst());
 
-            assert srcSpeed == dstSpeed;
-            return srcSpeed;
+            return min(srcSpeed, dstSpeed);
         }
 
         private long getLinkLoadSpeed(Link link) {
 
-            if (link == null || link.src() == null || link.dst() == null) {
-                int a = 0;
-            }
             long srcSpeed = getPortLoadSpeed(link.src());
             long dstSpeed = getPortLoadSpeed(link.dst());
 
             return max(srcSpeed, dstSpeed);
         }
-
-//        private long getLinkRestSpeed(Link link){
-//
-//            long srcSpeed = getPortLoadSpeed(link.src());
-//            long dstSpeed = getPortLoadSpeed(link.dst());
-//
-//            return max(srcSpeed, dstSpeed);
-//        }
 
         /**
          * Unit: bps
