@@ -100,6 +100,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
     private AtomicLong vportNo = new AtomicLong(1);
     private Map<ConnectPoint, PortNumber> vportMap = new HashMap<>();
     private Map<PortNumber, Long> vportCapabilityMap = new HashMap<>();
+    private Map<ConnectPoint, PortNumber> vportAllocateCache = new HashMap<>();
     private Set<Link> intraLinkSet = new HashSet<>();
 
     private ScheduledExecutorService executor;
@@ -145,6 +146,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         vportMap.clear();
         vportCapabilityMap.clear();
         intraLinkSet.clear();
+        vportAllocateCache.clear();
         log.info("Stoped");
     }
 
@@ -153,14 +155,24 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         //TODO
     }
 
+
+    private PortNumber allocateVportNo(ConnectPoint location) {
+        if (vportAllocateCache.containsKey(location)) {
+            return vportAllocateCache.get(location);
+        } else {
+            PortNumber newVportNum = portNumber(vportNo.getAndIncrement());
+            vportAllocateCache.put(location, newVportNum);
+            return newVportNum;
+        }
+    }
     private void addOrUpdateVport(ConnectPoint edgeConnectPoint, OXPVportState vportState, OXPVportReason reason) {
         checkNotNull(edgeConnectPoint);
         if (reason.equals(OXPVportReason.ADD) && !vportMap.containsKey(edgeConnectPoint)) {
             // 添加Vport
             // 1.分配Vport号,并记录<ConnectPoint, vportNo>
-            long allocatedVportNum = vportNo.getAndIncrement();
-            vportMap.put(edgeConnectPoint, portNumber(allocatedVportNum));
-            vportCapabilityMap.put(portNumber(allocatedVportNum), DEFAULT_VPORT_CAP);
+            PortNumber allocatedVportNum = allocateVportNo(edgeConnectPoint);
+            vportMap.put(edgeConnectPoint, allocatedVportNum);
+            vportCapabilityMap.put(allocatedVportNum, DEFAULT_VPORT_CAP);
         }
         // 1.获取对应的vportNum
         PortNumber vportNum = vportMap.get(edgeConnectPoint);

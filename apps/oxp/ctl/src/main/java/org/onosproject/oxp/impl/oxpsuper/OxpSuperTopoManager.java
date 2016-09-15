@@ -659,10 +659,23 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
 
     private void removeVport(DeviceId deviceId, PortNumber vportNum) {
         Set<PortNumber> vportSet = vportMap.get(deviceId);
-        if (null == vportSet) {
+        if (null != vportSet) {
             vportSet.remove(vportNum);
         }
         vportDescMap.remove(new ConnectPoint(deviceId, vportNum));
+        Set<Link> toRemovedLinks = new HashSet<>();
+        for (Link link : interLinkSet) {
+            if (link.src().deviceId().equals(deviceId) && link.src().port().equals(vportNum)) {
+                toRemovedLinks.add(link);
+            }
+            if (link.dst().deviceId().equals(deviceId) && link.dst().port().equals(vportNum)) {
+                toRemovedLinks.add(link);
+            }
+        }
+        for (Link link : toRemovedLinks) {
+            interLinkSet.remove(link);
+        }
+        if (!toRemovedLinks.isEmpty()) updateTopology();
     }
 
     private void processVportStatusMsg(DeviceId deviceId, OXPVportStatus vportStatus) {
@@ -752,7 +765,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         }
     }
 
-    private void updateTopology() {
+    synchronized private void updateTopology() {
         Set<OXPDomain> domainSet = superController.getOxpDomains();
         Set<DeviceId> devices = new HashSet<>();
         for (OXPDomain domain : domainSet) {
