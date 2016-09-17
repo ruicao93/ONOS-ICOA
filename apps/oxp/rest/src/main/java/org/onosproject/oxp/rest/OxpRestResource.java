@@ -132,7 +132,11 @@ public class OxpRestResource extends AbstractWebResource {
             for (PortNumber vport : get(OxpSuperTopoService.class).getVports(domain.getDeviceId())) {
                 ObjectNode vportNode = mapper().createObjectNode();
                 vportNode.put("vportNum", vport.toLong());
-                vportNode.put("capability", get(OxpSuperTopoService.class).getVportMaxCapability(
+                vportNode.put("capability", get(OxpSuperTopoService.class).getVportRestCapability(
+                        new ConnectPoint(domain.getDeviceId(), vport)));
+                vportNode.put("loadCapability", get(OxpSuperTopoService.class).getVportLoadCapability(
+                        new ConnectPoint(domain.getDeviceId(), vport)));
+                vportNode.put("maxCapability", get(OxpSuperTopoService.class).getVportMaxCapability(
                         new ConnectPoint(domain.getDeviceId(), vport)));
                 vportArray.add(vportNode);
             }

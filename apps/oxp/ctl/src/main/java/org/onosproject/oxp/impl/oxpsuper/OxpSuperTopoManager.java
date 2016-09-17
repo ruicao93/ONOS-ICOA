@@ -141,9 +141,9 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     @Override
     public long getInterLinkCapability(Link link) {
         checkNotNull(link);
-        long srcVportCapability = getVportMaxCapability(link.src());
-        long dstVportCapability = getVportMaxCapability(link.dst());
-        return srcVportCapability < dstVportCapability ? srcVportCapability : dstVportCapability;
+        long srcVportCapability = getVportRestCapability(link.src());
+        long dstVportCapability = getVportRestCapability(link.dst());
+        return Long.min(srcVportCapability, dstVportCapability);
     }
 
     @Override
@@ -224,10 +224,10 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
 
 
     //=================== Start =====================
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    private DeviceService deviceService;
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    private PortStatisticsService portStatisticsService;
+//    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+//    private DeviceService deviceService;
+//    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+//    private PortStatisticsService portStatisticsService;
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     private HostService hostService;
 
@@ -430,7 +430,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         double weight = 0;
         for (TopologyEdge edge : edges) {
             double linkWeight = linkWeightTool.weight(edge);
-            weight = weight < linkWeight ? linkWeight : weight;
+            weight = Double.max(weight, linkWeight);
         }
         return weight;
     }
