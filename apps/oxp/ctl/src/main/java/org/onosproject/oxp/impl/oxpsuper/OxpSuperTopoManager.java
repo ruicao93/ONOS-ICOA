@@ -592,10 +592,10 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
 
         private long getLinkLoadSpeed(Link link) {
 
-            long srcSpeed = getPortLoadSpeed(link.src());
-            long dstSpeed = getPortLoadSpeed(link.dst());
+            //long srcSpeed = getPortLoadSpeed(link.src());
+            //long dstSpeed = getPortLoadSpeed(link.dst());
 
-            return max(srcSpeed, dstSpeed);
+            return getInterLinkCapability(link);
         }
 
         /**
@@ -604,6 +604,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
          * @param port
          * @return
          */
+        @Deprecated
         private long getPortLoadSpeed(ConnectPoint port) {
 
             return portStatisticsService.load(port).rate() * 8;//data source: Bps
@@ -619,7 +620,8 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         private long getPortLineSpeed(ConnectPoint port) {
 
             assert port.elementId() instanceof DeviceId;
-            return deviceService.getPort(port.deviceId(), port.port()).portSpeed() * 1000000;//data source: Mbps
+            //return deviceService.getPort(port.deviceId(), port.port()).portSpeed() * 1000000;//data source: Mbps
+            return getVportCapability(port);
 
         }
 

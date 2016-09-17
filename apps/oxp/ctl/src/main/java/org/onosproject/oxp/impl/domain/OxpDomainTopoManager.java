@@ -205,7 +205,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         for (ConnectPoint srcConnectPoint : vportMap.keySet()) {
             PortNumber srcVport = vportMap.get(srcConnectPoint);
             OXPVport srcVportDesc = OXPVport.ofShort((short) srcVport.toLong());
-            long srcVportCapability = getVportCapability(srcConnectPoint);
+            long srcVportCapability = getVportMaxCapability(srcConnectPoint);
             for (ConnectPoint dstConnectPoint : vportMap.keySet()) {
                 PortNumber dstVport = vportMap.get(dstConnectPoint);
                 OXPVport dstVportDesc = OXPVport.ofShort((short) dstVport.toLong());
@@ -239,10 +239,8 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         domainController.write(topologyReply);
     }
 
-    private long getVportCapability(ConnectPoint connectPoint) {
+    private long getVportLoadCapability(ConnectPoint connectPoint) {
         if (domainController.isCapBwSet()) {
-            Port port = deviceService.getPort(connectPoint.deviceId(), connectPoint.port());
-            long vportMaxSpeed = port.portSpeed() * 1000 * 1000;  //Bps
             long vportCurSpeed =0;
             try {
                 vportCurSpeed = portStatisticsService.load(connectPoint).rate() * 8;//data source: Bps
@@ -250,8 +248,25 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                 log.info("Get port rate error.");
                 return 0;
             }
+            return vportCurSpeed;
+        } else if (domainController.isCapDelaySet()) {
+            return 0;
+        } else {
+            // hop flag is set
+            return 0;
+        }
+    }
 
-            return vportMaxSpeed - vportCurSpeed;
+    private long getVportRestCapability(ConnectPoint connectPoint) {
+        return getVportMaxCapability(connectPoint) - getVportLoadCapability(connectPoint);
+    }
+
+    private long getVportMaxCapability(ConnectPoint connectPoint) {
+        if (domainController.isCapBwSet()) {
+            Port port = deviceService.getPort(connectPoint.deviceId(), connectPoint.port());
+            long vportMaxSpeed = port.portSpeed() * 1000 * 1000;  //Bps
+
+            return vportMaxSpeed;
         } else if (domainController.isCapDelaySet()) {
             return 0;
         } else {
@@ -262,8 +277,8 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
 
     private long getIntraLinkCapability(ConnectPoint srcConnectPoint, ConnectPoint dstConnectPoint) {
         if (domainController.isCapBwSet()) {
-            long srcVportCap = getVportCapability(srcConnectPoint);
-            long dstVportCap = getVportCapability(dstConnectPoint);
+            long srcVportCap = getVportRestCapability(srcConnectPoint);
+            long dstVportCap = getVportRestCapability(dstConnectPoint);
             return srcVportCap < dstVportCap ? srcVportCap : dstVportCap;
         } else if (domainController.isCapDelaySet()) {
             return 0;
