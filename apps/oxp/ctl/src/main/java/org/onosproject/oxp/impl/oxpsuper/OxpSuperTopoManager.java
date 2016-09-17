@@ -23,10 +23,7 @@ import org.onosproject.oxp.oxpsuper.OxpDomainListener;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.oxpsuper.OxpSuperTopoService;
 import org.onosproject.oxp.protocol.*;
-import org.onosproject.oxp.types.DomainId;
-import org.onosproject.oxp.types.IPv4Address;
-import org.onosproject.oxp.types.OXPHost;
-import org.onosproject.oxp.types.OXPInternalLink;
+import org.onosproject.oxp.types.*;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
 import org.projectfloodlight.openflow.protocol.OFType;
@@ -62,7 +59,8 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     // 记录Vport
     private Map<DeviceId, Set<PortNumber>> vportMap;
     private Map<ConnectPoint, OXPVportDesc> vportDescMap;
-    private Map<ConnectPoint, Long> vportCapabilityMap;
+    private Map<ConnectPoint, Long> vportMaxCapabilityMap;
+    private Map<ConnectPoint, Long> vportLoadCapabilityMap;
     // 记录internalLinks
     private Map<DeviceId, Set<Link>> internalLinksMap;
     private Map<Link, OXPInternalLink> internalLinkDescMap;
@@ -83,7 +81,8 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     private void activate() {
         vportMap = new HashMap<>();
         vportDescMap = new HashMap<>();
-        vportCapabilityMap = new HashMap<>();
+        vportMaxCapabilityMap = new HashMap<>();
+        vportLoadCapabilityMap = new HashMap<>();
         internalLinksMap = new HashMap<>();
         internalLinkDescMap = new HashMap<>();
         interLinkSet = new HashSet<>();
@@ -98,7 +97,8 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         superController.removeOxpDomainListener(domainListener);
         vportMap.clear();
         vportDescMap.clear();
-        vportCapabilityMap.clear();
+        vportMaxCapabilityMap.clear();
+        vportLoadCapabilityMap.clear();
         internalLinksMap.clear();
         internalLinkDescMap.clear();
         interLinkSet.clear();
@@ -117,9 +117,20 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     }
 
     @Override
-    public long getVportCapability(ConnectPoint portLocation) {
-        if (!vportCapabilityMap.containsKey(portLocation)) return  0;
-        return vportCapabilityMap.get(portLocation);
+    public long getVportMaxCapability(ConnectPoint portLocation) {
+        if (!vportMaxCapabilityMap.containsKey(portLocation)) return  0;
+        return vportMaxCapabilityMap.get(portLocation);
+    }
+
+    @Override
+    public long getVportLoadCapability(ConnectPoint portLocation) {
+        if (!vportLoadCapabilityMap.containsKey(portLocation)) return  0;
+        return vportLoadCapabilityMap.get(portLocation);
+    }
+
+    @Override
+    public long getVportRestCapability(ConnectPoint portLocation) {
+        return getVportMaxCapability(portLocation) - getVportLoadCapability(portLocation);
     }
 
     @Override
@@ -130,8 +141,8 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     @Override
     public long getInterLinkCapability(Link link) {
         checkNotNull(link);
-        long srcVportCapability = getVportCapability(link.src());
-        long dstVportCapability = getVportCapability(link.dst());
+        long srcVportCapability = getVportMaxCapability(link.src());
+        long dstVportCapability = getVportMaxCapability(link.dst());
         return srcVportCapability < dstVportCapability ? srcVportCapability : dstVportCapability;
     }
 
@@ -587,7 +598,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
             long srcSpeed = getPortLineSpeed(link.src());
             long dstSpeed = getPortLineSpeed(link.dst());
 
-            return min(srcSpeed, dstSpeed);
+            return Long.min(srcSpeed, dstSpeed);
         }
 
         private long getLinkLoadSpeed(Link link) {
@@ -607,8 +618,8 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         @Deprecated
         private long getPortLoadSpeed(ConnectPoint port) {
 
-            return portStatisticsService.load(port).rate() * 8;//data source: Bps
-
+            //return portStatisticsService.load(port).rate() * 8;//data source: Bps
+            return getVportLoadCapability(port);
         }
 
         /**
@@ -621,7 +632,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
 
             assert port.elementId() instanceof DeviceId;
             //return deviceService.getPort(port.deviceId(), port.port()).portSpeed() * 1000000;//data source: Mbps
-            return getVportCapability(port);
+            return getVportMaxCapability(port);
 
         }
 
@@ -701,8 +712,11 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
             ConnectPoint srcConnectPoint = new ConnectPoint(deviceId, srcPortNum);
             ConnectPoint dstConnectPoint = new ConnectPoint(deviceId, dstPortNum);
             if (srcPortNum.equals(dstPortNum)) {
-
-                vportCapabilityMap.put(srcConnectPoint, internalLink.getCapability());
+                vportMaxCapabilityMap.put(srcConnectPoint, internalLink.getCapability());
+                continue;
+            }
+            if (internalLink.getDstVport().equals(OXPVport.LOCAL)) {
+                vportLoadCapabilityMap.put(srcConnectPoint, internalLink.getCapability());
                 continue;
             }
             Link link = DefaultLink.builder()
@@ -858,7 +872,8 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
             for (PortNumber vport : vportMap.get(domain.getDeviceId())) {
                 ConnectPoint vportLocation = new ConnectPoint(domain.getDeviceId(), vport);
                 vportDescMap.remove(vportLocation);
-                vportCapabilityMap.remove(vportLocation);
+                vportMaxCapabilityMap.remove(vportLocation);
+                vportLoadCapabilityMap.remove(vportLocation);
             }
             vportMap.remove(domain.getDeviceId());
         }

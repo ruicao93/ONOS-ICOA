@@ -31,7 +31,9 @@ public interface OxpSuperTopoService {
 
     OXPVportDesc getVportDesc(DeviceId deviceId, PortNumber portNumber);
 
-    long getVportCapability(ConnectPoint portLocation);
+    long getVportMaxCapability(ConnectPoint portLocation);
+    long getVportLoadCapability(ConnectPoint portLocation);
+    long getVportRestCapability(ConnectPoint portLocation);
 
     Set<OXPHost> getHostsByIp(IpAddress ipAddress);
 

@@ -6,21 +6,17 @@ import org.onlab.packet.Ip4Address;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.MacAddress;
 import org.onosproject.net.*;
-import org.onosproject.net.host.HostService;
-import org.onosproject.net.topology.TopologyService;
 import org.onosproject.oxp.OXPDomain;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.oxpsuper.OxpSuperTopoService;
 import org.onosproject.oxp.protocol.OXPType;
 import org.onosproject.oxp.types.OXPHost;
-import org.onosproject.oxp.types.OXPVport;
 import org.onosproject.rest.AbstractWebResource;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.core.Response;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -136,7 +132,7 @@ public class OxpRestResource extends AbstractWebResource {
             for (PortNumber vport : get(OxpSuperTopoService.class).getVports(domain.getDeviceId())) {
                 ObjectNode vportNode = mapper().createObjectNode();
                 vportNode.put("vportNum", vport.toLong());
-                vportNode.put("capability", get(OxpSuperTopoService.class).getVportCapability(
+                vportNode.put("capability", get(OxpSuperTopoService.class).getVportMaxCapability(
                         new ConnectPoint(domain.getDeviceId(), vport)));
                 vportArray.add(vportNode);
             }

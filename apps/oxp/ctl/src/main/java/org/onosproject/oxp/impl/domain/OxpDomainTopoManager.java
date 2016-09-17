@@ -205,13 +205,15 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         for (ConnectPoint srcConnectPoint : vportMap.keySet()) {
             PortNumber srcVport = vportMap.get(srcConnectPoint);
             OXPVport srcVportDesc = OXPVport.ofShort((short) srcVport.toLong());
-            long srcVportCapability = getVportMaxCapability(srcConnectPoint);
+            long srcVportMaxCapability = getVportMaxCapability(srcConnectPoint);
+            long srcVportLoadCapability = getVportLoadCapability(srcConnectPoint);
             for (ConnectPoint dstConnectPoint : vportMap.keySet()) {
                 PortNumber dstVport = vportMap.get(dstConnectPoint);
                 OXPVport dstVportDesc = OXPVport.ofShort((short) dstVport.toLong());
                 if (srcVport.equals(dstVport) && !hasHandledVport.contains(srcVport)) {
                     hasHandledVport.add(srcVport);
-                    internalLinks.add(OXPInternalLink.of(srcVportDesc, dstVportDesc, srcVportCapability, OXPVersion.OXP_10));
+                    internalLinks.add(OXPInternalLink.of(srcVportDesc, dstVportDesc, srcVportMaxCapability, OXPVersion.OXP_10));
+                    internalLinks.add(OXPInternalLink.of(srcVportDesc, OXPVport.LOCAL, srcVportLoadCapability, OXPVersion.OXP_10));
                     if (!domainController.isAdvancedMode()) {
                         break;
                     }
