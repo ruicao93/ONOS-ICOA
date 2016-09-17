@@ -210,4 +210,51 @@ public class OxpRestResource extends AbstractWebResource {
         return ok(root).build();
     }
 
+    @GET
+    @Path("/getLoadBalancePath/{src}/{dst}")
+    public Response getLoadBalancePath(@PathParam("src") String src, @PathParam("dst") String dst) {
+        ObjectNode root = mapper().createObjectNode();
+        // srcIp, dstIp
+        IpAddress srcIp = Ip4Address.valueOf(src);
+        IpAddress dstIp = Ip4Address.valueOf(dst);
+        // srcHost, dstHost
+        Set<OXPHost> srcHosts = get(OxpSuperTopoService.class).getHostsByIp(srcIp);
+        Set<OXPHost> dstHosts = get(OxpSuperTopoService.class).getHostsByIp(dstIp);
+        if (srcHosts.isEmpty() || dstHosts.isEmpty()) {
+            root.put("isReachable", false);
+            root.put("isDirected", false);
+            return ok(root).build();
+        }
+        OXPHost srcHost = (OXPHost) srcHosts.toArray()[0];
+        OXPHost dstHost = (OXPHost) dstHosts.toArray()[0];
+        // srcDevice, dstDevice
+        HostId srcHostId = HostId.hostId(MacAddress.valueOf(srcHost.getMacAddress().getLong()));
+        DeviceId srcDeviceId = get(OxpSuperTopoService.class).getHostLocation(srcHostId);
+        HostId dstHostId = HostId.hostId(MacAddress.valueOf(dstHost.getMacAddress().getLong()));
+        DeviceId dstDeviceId = get(OxpSuperTopoService.class).getHostLocation(dstHostId);
+
+        if (srcDeviceId.equals(dstDeviceId)) {
+            root.put("isReachable", true);
+            root.put("isDirected", true);
+            return ok(root).build();
+        }
+        // Path
+        Set<org.onosproject.net.Path> paths = get(OxpSuperTopoService.class).getLoadBalancePaths(srcDeviceId, dstDeviceId);
+        if (paths.isEmpty()) ;
+        org.onosproject.net.Path path = (org.onosproject.net.Path) paths.toArray()[0];
+        // result
+        root.put("isReachable", true);
+        root.put("isDirected", false);
+        ArrayNode array = root.putArray("path");
+        for (Link link : path.links()) {
+            ObjectNode linkNode = mapper().createObjectNode();
+            linkNode.put("srcDomain", get(OxpSuperController.class).getOxpDomain(link.src().deviceId()).getDomainId().getLong());
+            linkNode.put("dstDomain", get(OxpSuperController.class).getOxpDomain(link.dst().deviceId()).getDomainId().getLong());
+            linkNode.put("srcVport", link.src().port().toLong());
+            linkNode.put("dstVport", link.dst().port().toLong());
+            array.add(linkNode);
+        }
+        return ok(root).build();
+    }
+
 }

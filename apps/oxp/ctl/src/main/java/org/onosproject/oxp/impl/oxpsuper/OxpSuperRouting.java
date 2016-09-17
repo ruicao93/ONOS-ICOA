@@ -134,8 +134,9 @@ public class OxpSuperRouting {
             return;
         }
         // TODO use loadbalance path instead
-        Set<Path> paths = topoService.getPaths(srcDeviceId, dstDeviceId);
-        //Set<Path> paths = topoService.getLoadBalancePaths(srcDeviceId, dstDeviceId);
+        Set<Path> paths = null;
+        //paths = topoService.getPaths(srcDeviceId, dstDeviceId);
+        paths = topoService.getLoadBalancePaths(srcDeviceId, dstDeviceId);
         if (paths.isEmpty()) return;
         Path path = (Path) paths.toArray()[0];
         // 安装
