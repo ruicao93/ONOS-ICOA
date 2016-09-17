@@ -279,9 +279,15 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
 
     private long getIntraLinkCapability(ConnectPoint srcConnectPoint, ConnectPoint dstConnectPoint) {
         if (domainController.isCapBwSet()) {
-            long srcVportCap = getVportRestCapability(srcConnectPoint);
-            long dstVportCap = getVportRestCapability(dstConnectPoint);
-            return srcVportCap < dstVportCap ? srcVportCap : dstVportCap;
+            if (srcConnectPoint.deviceId().equals(dstConnectPoint.deviceId())
+                    || !pathService.getPaths(srcConnectPoint.deviceId(), dstConnectPoint.deviceId()).isEmpty()) {
+                long srcVportCap = getVportRestCapability(srcConnectPoint);
+                long dstVportCap = getVportRestCapability(dstConnectPoint);
+                return Long.min(srcVportCap, dstVportCap);
+            } else {
+                return Long.MIN_VALUE;
+            }
+
         } else if (domainController.isCapDelaySet()) {
             return 0;
         } else {
