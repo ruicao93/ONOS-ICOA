@@ -334,6 +334,11 @@ public class HostLocationProvider extends AbstractProvider implements HostProvid
             HostLocation hloc = new HostLocation(heardOn, System.currentTimeMillis());
             HostId hid = HostId.hostId(eth.getSourceMAC(), vlan);
 
+            // FIXME: change work for OXP,Only discovery host by ARP
+            if (eth.getEtherType() != Ethernet.TYPE_ARP) {
+                return;
+            }
+
             // ARP: possible new hosts, update both location and IP
             if (eth.getEtherType() == Ethernet.TYPE_ARP) {
                 ARP arp = (ARP) eth.getPayload();
