@@ -20,7 +20,8 @@ import logging
 import os
 def multiControllerNet():
 	net = Mininet(controller=None,switch=OVSSwitch, link=TCLink, autoSetMacs=True)
-	controller_ips=["10.103.90.102", "10.117.2.43", "10.117.2.35", "10.117.2.37"]
+	controller_ips=[ "10.103.90.102", "10.117.2.43","10.117.2.35", "10.117.2.85"]
+	#controller_ips=[ "10.117.2.35", "10.103.90.102","10.103.90.102", "10.117.2.35"]
 	controller_list = []
 	switch_list = []
 	host_list = []
@@ -46,14 +47,14 @@ def multiControllerNet():
 				net.addLink(switch_list[i * 5 + j], switch_list[i * 5 + k])
 
 	# domain1 -> others
-	net.addLink(switch_list[4], switch_list[6] )
-	net.addLink(switch_list[4], switch_list[10] )
+	#net.addLink(switch_list[4], switch_list[6] )
+	#net.addLink(switch_list[4], switch_list[10] )
 	# domain2 -> others
-	net.addLink(switch_list[7], switch_list[18] )
+	#net.addLink(switch_list[7], switch_list[18] )
 
 	# domain3 -> others
-	net.addLink(switch_list[10], switch_list[16] )
-	net.addLink(switch_list[7], switch_list[10] )
+	#net.addLink(switch_list[10], switch_list[16] )
+	#net.addLink(switch_list[7], switch_list[10] )
 
 	net.build()
 	for controller in controller_list:
