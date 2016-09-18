@@ -19,57 +19,73 @@ from mininet.topo import Topo
 import logging
 import os
 def multiControllerNet():
-	net = Mininet(controller=None,switch=OVSSwitch, link=TCLink, autoSetMacs=True)
-	controller_ips=[ "10.103.90.102", "10.117.2.43","10.117.2.35", "10.117.2.85"]
-	#controller_ips=[ "10.117.2.35", "10.103.90.102","10.103.90.102", "10.117.2.35"]
-	controller_list = []
-	switch_list = []
-	host_list = []
-	for i in range(0, len(controller_ips)):
-		name = "controller%s" % str(i+1)
-		controller = net.addController(name, controller=RemoteController,ip=controller_ips[i],port=6633)
-		controller_list.append(controller)
+    net = Mininet(controller=None,switch=OVSSwitch, link=TCLink, autoSetMacs=True)
+    controller_ips=[ "10.103.90.102", "10.117.2.43","10.117.2.35", "10.117.2.85"]
+    #controller_ips=[ "10.103.90.102", "10.103.90.102","10.103.90.102", "10.103.90.102"]
+    controller_list = []
+    switch_list = []
+    host_list = []
+    local_ip = "10.103.90.102"
+    test_ip = "10.117.2.62"
+    test2_ip = "10.117.2.43"
+    for i in range(0, len(controller_ips)):
+        name = "controller%s" % str(i+1)
+        controller = net.addController(name, controller=RemoteController,ip=controller_ips[i],port=6633)
+        controller_list.append(controller)
 
-	controller_num = len(controller_ips)
-	switch_num = controller_num * 5
-	host_num = switch_num * 2
+    controller_num = len(controller_ips)
+    switch_num = controller_num * 5
+    host_num = switch_num * 2
 
-	for i in range(0, switch_num):
-		switch_list.append(net.addSwitch("s%d" % (i+1)))
-		host_list.append(net.addHost("h%d" % (2*i+1)))
-		host_list.append(net.addHost("h%d" % (2*i+2)))
-		net.addLink(switch_list[i], host_list[2*i])
-		net.addLink(switch_list[i], host_list[2*i+1])
+    for i in range(0, switch_num):
+        switch_list.append(net.addSwitch("s%d" % (i+1)))
+        info("Create switch: %s \n" % switch_list[i])
+        host_list.append(net.addHost("h%d" % (2*i+1)))
+        host_list.append(net.addHost("h%d" % (2*i+2)))
+        net.addLink(switch_list[i], host_list[2*i])
+        net.addLink(switch_list[i], host_list[2*i+1])
 
-	for i in range(0, 4):
-		for j in range(0, 5 - 1):
-			for k in range(j + 1, 5):
-				net.addLink(switch_list[i * 5 + j], switch_list[i * 5 + k])
+    for i in range(1, 2):
+        for j in range(0, 5 - 1):
+            for k in range(j + 1, 5):
+                info("Add link s%d ---> s%d\n" % (i * 5 + j + 1, i * 5 + k + 1))
+                net.addLink(switch_list[i * 5 + j], switch_list[i * 5 + k])
 
-	# domain1 -> others
-	#net.addLink(switch_list[4], switch_list[6] )
-	#net.addLink(switch_list[4], switch_list[10] )
-	# domain2 -> others
-	#net.addLink(switch_list[7], switch_list[18] )
+    # net.addLink(switch_list[5], switch_list[6])
+    # net.addLink(switch_list[5], switch_list[7])
+    # net.addLink(switch_list[5], switch_list[8])
+    # net.addLink(switch_list[5], switch_list[9])
+    # net.addLink(switch_list[6], switch_list[7])
+    # net.addLink(switch_list[6], switch_list[8])
+    # net.addLink(switch_list[6], switch_list[9])
+    # net.addLink(switch_list[7], switch_list[8])
+    # net.addLink(switch_list[7], switch_list[9])
+    # net.addLink(switch_list[8], switch_list[9])
 
-	# domain3 -> others
-	#net.addLink(switch_list[10], switch_list[16] )
-	#net.addLink(switch_list[7], switch_list[10] )
+    # domain1 -> others
+    net.addLink(switch_list[4], switch_list[6] )
+    net.addLink(switch_list[4], switch_list[10] )
+    # domain2 -> others
+    net.addLink(switch_list[7], switch_list[18] )
 
-	net.build()
-	for controller in controller_list:
-		controller.start()
+    # domain3 -> others
+    net.addLink(switch_list[10], switch_list[16] )
+    net.addLink(switch_list[7], switch_list[10] )
 
-	for i in range(0, switch_num):
-		switch_list[i].start([controller_list[i / 5]])
+    net.build()
+    for controller in controller_list:
+        controller.start()
 
-	for i in range(0, switch_num):
-		os.system("sudo ovs-vsctl set bridge %s protocols=OpenFlow13" % switch_list[i])
+    for i in range(0, switch_num):
+        switch_list[i].start([controller_list[i / 5]])
 
-	CLI(net)
+    for i in range(0, switch_num):
+        os.system("sudo ovs-vsctl set bridge %s protocols=OpenFlow13" % switch_list[i])
 
-	net.stop()
+    CLI(net)
+
+    net.stop()
 
 if __name__ == '__main__':
-	setLogLevel('info')
-	multiControllerNet()
+    setLogLevel('info')
+    multiControllerNet()

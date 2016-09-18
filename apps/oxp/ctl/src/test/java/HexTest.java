@@ -5,7 +5,8 @@ import org.junit.Test;
  */
 public class HexTest {
     @Test
-    public  void main() {
+    public void main() {
         System.out.println(String.format("%06x", 10000000));
+        System.out.println(Long.valueOf("000000000000000f",16));
     }
 }
