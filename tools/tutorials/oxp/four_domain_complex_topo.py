@@ -45,7 +45,7 @@ def multiControllerNet():
         net.addLink(switch_list[i], host_list[2*i])
         net.addLink(switch_list[i], host_list[2*i+1])
 
-    for i in range(1, 2):
+    for i in range(0, 4):
         for j in range(0, 5 - 1):
             for k in range(j + 1, 5):
                 info("Add link s%d ---> s%d\n" % (i * 5 + j + 1, i * 5 + k + 1))

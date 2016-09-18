@@ -428,7 +428,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
             if (LLDP_VPORT_LOCAL == oxplldp.getVportNum()) {
                 // allocate vport_no and send msg to super
                 addOrUpdateVport(edgeConnectPoint, OXPVportState.LIVE, OXPVportReason.ADD);
-                OXPLLDP replyOxplldp = OXPLLDP.oxpLLDP(Long.valueOf(dstDeviceId.toString().substring("of:".length())),
+                OXPLLDP replyOxplldp = OXPLLDP.oxpLLDP(Long.valueOf(dstDeviceId.toString().substring("of:".length()),16),
                           Long.valueOf(dstPort.toLong()).intValue(),
                         domainController.getDomainId().getLong(),
                         Long.valueOf(getVportNum(edgeConnectPoint).toLong()).intValue());
