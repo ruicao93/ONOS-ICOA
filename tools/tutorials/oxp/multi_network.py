@@ -34,9 +34,10 @@ def multiControllerNet(con_num=7, sw_num=35, host_num=70):
     net = Mininet(controller=None,
                   switch=OVSSwitch, link=TCLink, autoSetMacs=True)
 
-    i=0
+    i=1
     for ip_str in controller_ips:
-        name = 'controller%s' % str(i+=1)
+        name = 'controller%s' % str(i)
+        i += 1
         c = net.addController(name, controller=RemoteController,ip=ip_str
                               port=6633)
         controller_list.append(c)
