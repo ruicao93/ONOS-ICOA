@@ -584,7 +584,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
             long linkLineSpeed = getLinkLineSpeed(edge.link());
 
             //FIXME - Bata1: Here, assume the value in the map is the rest bandwidth of inter-demain link
-            long interLinkRestBandwidth = linkLineSpeed - getLinkLoadSpeed(edge.link());
+            long interLinkRestBandwidth = getInterLinkCapability(edge.link());
 
             if (interLinkRestBandwidth <= 0) {
                 return LINK_WEIGHT_FULL;
@@ -606,7 +606,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
             //long srcSpeed = getPortLoadSpeed(link.src());
             //long dstSpeed = getPortLoadSpeed(link.dst());
 
-            return getInterLinkCapability(link);
+            return Long.max(getVportLoadCapability(link.src()), getVportLoadCapability(link.dst()));
         }
 
         /**
