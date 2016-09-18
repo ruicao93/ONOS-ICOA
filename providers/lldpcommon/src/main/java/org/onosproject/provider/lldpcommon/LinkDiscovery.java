@@ -292,7 +292,7 @@ public class LinkDiscovery implements TimerTask {
         }
         //oxp LLDP
         if (null != domainId) {
-            OXPLLDP oxplldp = OXPLLDP.oxpLLDP(Long.valueOf(device.id().toString().substring("of:".length())),
+            OXPLLDP oxplldp = OXPLLDP.oxpLLDP(Long.valueOf(device.id().toString().substring("of:".length()), 16),
                     portNumber.intValue(),
                     Long.valueOf(domainId),
                     0xffff);
