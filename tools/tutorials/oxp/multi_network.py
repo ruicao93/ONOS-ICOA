@@ -38,7 +38,7 @@ def multiControllerNet(con_num=7, sw_num=35, host_num=70):
     for ip_str in controller_ips:
         name = 'controller%s' % str(i)
         i += 1
-        c = net.addController(name, controller=RemoteController,ip=ip_str
+        c = net.addController(name, controller=RemoteController,ip=ip_str,
                               port=6633)
         controller_list.append(c)
         logger.debug("*** Creating %s" % name)
