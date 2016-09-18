@@ -238,9 +238,10 @@ public class LinkManager
             checkNotNull(linkDescription, LINK_DESC_NULL);
             checkValidity();
             // FIXME: 16-9-18 do not detect interlink, Oxp take charge of this job
-            if (null == deviceService.getDevice(linkDescription.src().deviceId()) ) {
-                return;
-            }
+//            if (null == deviceService.getDevice(linkDescription.src().deviceId()) ||
+//                    null == deviceService.getDevice(linkDescription.dst().deviceId())) {
+//                return;
+//            }
             linkDescription = validateLink(linkDescription);
             if (linkDescription != null) {
                 LinkEvent event = store.createOrUpdateLink(provider().id(), linkDescription);
