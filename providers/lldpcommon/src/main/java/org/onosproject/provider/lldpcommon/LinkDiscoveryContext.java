@@ -81,4 +81,6 @@ public interface LinkDiscoveryContext {
      * @return the cluster identifier
      */
     String fingerprint();
+
+    String getOXpDomainId();
 }

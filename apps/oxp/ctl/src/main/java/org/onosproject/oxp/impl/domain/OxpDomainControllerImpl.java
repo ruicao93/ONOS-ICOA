@@ -3,6 +3,8 @@ package org.onosproject.oxp.impl.domain;
 import org.apache.felix.scr.annotations.*;
 import org.onlab.packet.IpAddress;
 import org.onosproject.core.CoreService;
+import org.onosproject.net.config.NetworkConfigEvent;
+import org.onosproject.net.config.NetworkConfigListener;
 import org.onosproject.net.config.NetworkConfigRegistry;
 import org.onosproject.net.topology.OxpDomainConfig;
 import org.onosproject.oxp.OxpSuper;
@@ -66,24 +68,28 @@ public class OxpDomainControllerImpl implements OxpDomainController {
 
     private Set<OxpSuperListener> oxpSuperListeners = new CopyOnWriteArraySet<>();
 
-
+    private OxpDomainConfig domainConfig;
 
     @Activate
     public void activate() {
-        OxpDomainConfig oxpDomainConfig = null;
-        int tryTimes = 10;
-        int i = 0;
-        while (oxpDomainConfig == null && i < tryTimes) {
-            oxpDomainConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"),OxpDomainConfig.class);
-            i++;
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        if (null == oxpDomainConfig) {
-            log.info("Failed to read OXPdomain config.");
+//        OxpDomainConfig oxpDomainConfig = null;
+//        int tryTimes = 10;
+//        int i = 0;
+//        while (oxpDomainConfig == null && i < tryTimes) {
+//            oxpDomainConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"),OxpDomainConfig.class);
+//            i++;
+//            try {
+//                Thread.sleep(1000);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//        if (null == oxpDomainConfig) {
+//            log.info("Failed to read OXPdomain config.");
+//            return;
+//        }
+        domainConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"),OxpDomainConfig.class);
+        if (!domainConfig.getBootFlag()) {
             return;
         }
         initDomainCfg();
@@ -93,6 +99,9 @@ public class OxpDomainControllerImpl implements OxpDomainController {
 
     @Deactivate
     public void deactivate() {
+        if (!domainConfig.getBootFlag()) {
+            return;
+        }
         oxpSuper = null;
         oxpSuperMessageListeners.clear();
         oxpSuperListeners.clear();
@@ -100,8 +109,11 @@ public class OxpDomainControllerImpl implements OxpDomainController {
         log.info("Stoped");
     }
 
+    private void setUp() {
+
+    }
+
     public void initDomainCfg() {
-        OxpDomainConfig domainConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"),OxpDomainConfig.class);
         //-2. set OXP Version
         this.setOxpVersion(OXPVersion.ofWireValue(domainConfig.getOxpVersion()));
         //-1.DomainId
@@ -387,6 +399,13 @@ public class OxpDomainControllerImpl implements OxpDomainController {
 
         @Override
         public void disconnectFromSuper(OxpSuper oxpSuper) {
+
+        }
+    }
+
+    private class InternalConfigListener implements NetworkConfigListener {
+        @Override
+        public void event(NetworkConfigEvent event) {
 
         }
     }

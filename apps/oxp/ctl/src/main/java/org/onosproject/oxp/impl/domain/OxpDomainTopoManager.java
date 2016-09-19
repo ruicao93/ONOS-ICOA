@@ -102,6 +102,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
     private Map<PortNumber, Long> vportCapabilityMap = new HashMap<>();
     private Map<ConnectPoint, PortNumber> vportAllocateCache = new HashMap<>();
     private Set<Link> intraLinkSet = new HashSet<>();
+    private boolean bootFlag = false;
 
     private ScheduledExecutorService executor;
 
@@ -110,37 +111,21 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
 
     @Activate
     public void activate() {
-        int tryTimes = 10;
-        int i = 0;
-        while (oxpVersion == null && i < tryTimes) {
-            oxpVersion = domainController.getOxpVersion();
-            i++;
-        }
-        if (null == oxpVersion) {
-            return;
-        }
-        oxpFactory = OXPFactories.getFactory(oxpVersion);
-        ofVersion = OFVersion.OF_13;
-        ofFactory = OFFactories.getFactory(ofVersion);
-        domainController.addMessageListener(oxpMsgListener);
         domainController.addOxpSuperListener(oxpSuperListener);
-        linkService.addListener(linkListener);
-        deviceService.addListener(deviceListener);
-        packetService.addProcessor(oxpLlapPacketProcessor, PacketProcessor.advisor(0));
-        executor = newSingleThreadScheduledExecutor(groupedThreads("oxp/topoupdate", "oxp-topoupdate-%d", log));
-        executor.scheduleAtFixedRate(new TopoUpdateTask(),
-                domainController.getPeriod(), domainController.getPeriod(), SECONDS);
         log.info("Started");
     }
 
     @Deactivate
     public void deactivate() {
+        domainController.removeOxpSuperListener(oxpSuperListener);
+        if (!bootFlag) {
+            return;
+        }
         if (executor != null) {
             executor.shutdownNow();
         }
         linkService.removeListener(linkListener);
         domainController.removeMessageListener(oxpMsgListener);
-        domainController.removeOxpSuperListener(oxpSuperListener);
         packetService.removeProcessor(oxpLlapPacketProcessor);
         deviceService.removeListener(deviceListener);
         vportMap.clear();
@@ -148,6 +133,21 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         intraLinkSet.clear();
         vportAllocateCache.clear();
         log.info("Stoped");
+    }
+
+    private void setUp() {
+        bootFlag = true;
+        oxpVersion = domainController.getOxpVersion();
+        oxpFactory = OXPFactories.getFactory(oxpVersion);
+        ofVersion = OFVersion.OF_13;
+        ofFactory = OFFactories.getFactory(ofVersion);
+        domainController.addMessageListener(oxpMsgListener);
+        linkService.addListener(linkListener);
+        deviceService.addListener(deviceListener);
+        packetService.addProcessor(oxpLlapPacketProcessor, PacketProcessor.advisor(0));
+        executor = newSingleThreadScheduledExecutor(groupedThreads("oxp/topoupdate", "oxp-topoupdate-%d", log));
+        executor.scheduleAtFixedRate(new TopoUpdateTask(),
+                domainController.getPeriod(), domainController.getPeriod(), SECONDS);
     }
 
     private void sendTopoReplyMsg(List<OXPInternalLink> oxpInternalLinks) {
@@ -387,6 +387,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         @Override
         public void connectToSuper(OxpSuper oxpSuper) {
             //TODO handle super online
+            setUp();
         }
 
         @Override

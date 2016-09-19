@@ -55,6 +55,7 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     private Map<OXPType, Long> msgLengthStatis = new HashMap<>();
 
     private OxpDomainMessageListener msgStatisListener = new InternalDomainMsgListener();
+    private OxpDomainListener domainListener = new InternalDomainListener();
 
     private SuperConnector connector = new SuperConnector(this);
     private Set<OxpDomainMessageListener> messageListeners = new CopyOnWriteArraySet<>();
@@ -64,35 +65,45 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     protected int oxpSuperPort = 6688;
     private OXPVersion oxpVersion;
     private OXPFactory oxpFactory;
+    private OxpSuperConfig superConfig;
+    private OXPConfigFlags pathComputeParam = OXPConfigFlags.CAP_BW;
 
     @Activate
     public void activate() {
-        OxpSuperConfig superConfig = null;
-        int tryTimes = 10;
-        int i = 0;
-        while (superConfig == null && i < tryTimes) {
-            superConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"),OxpSuperConfig.class);
-            i++;
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        if (null == superConfig) {
-            log.info("Failed to read OXPsuper config.");
+//        OxpSuperConfig superConfig = null;
+//        int tryTimes = 10;
+//        int i = 0;
+//        while (superConfig == null && i < tryTimes) {
+//            superConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"),OxpSuperConfig.class);
+//            i++;
+//            try {
+//                Thread.sleep(1000);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//        if (null == superConfig) {
+//            log.info("Failed to read OXPsuper config.");
+//            return;
+//        }
+        superConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"),OxpSuperConfig.class);
+        if (!superConfig.getBootFlag()) {
             return;
         }
         initSuperCfg();
         domainMap = new HashMap<>();
         deviceMap = new HashMap<>();
         this.addMessageListener(msgStatisListener);
+        this.addOxpDomainListener(domainListener);
         connector.start();
         log.info("OxpSuperController started...");
     }
 
     @Deactivate
     public void deactivate() {
+        if (!superConfig.getBootFlag()) {
+            return;
+        }
         connector.stop();
         domainMap.clear();
         deviceMap.clear();
@@ -102,7 +113,6 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     }
 
     public void initSuperCfg() {
-        OxpSuperConfig superConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"),OxpSuperConfig.class);
         this.setOxpVersion(OXPVersion.ofWireValue(superConfig.getOxpVersin()));
         this.setOxpSuperPort(superConfig.getSuperPort());
         oxpFactory = OXPFactories.getFactory(oxpVersion);
@@ -115,6 +125,10 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     @Override
     public void setOxpVersion(OXPVersion oxpVersion) {
         this.oxpVersion = oxpVersion;
+    }
+
+    public OXPConfigFlags getPathComputeParam() {
+        return pathComputeParam;
     }
 
     @Override
@@ -331,6 +345,42 @@ public class OxpSuperControllerImpl implements OxpSuperController {
                 msg.writeTo(buffer);
                 updateMsgStatis(msg.getType(), buffer.readableBytes());
             }
+        }
+    }
+
+    class InternalDomainListener implements OxpDomainListener {
+        @Override
+        public void domainConnected(OXPDomain domain) {
+            if (pathComputeParam == null) return;
+            if (getOxpDomains().size() == 1) {
+                if (domain.isCapBwSet()) {
+                    pathComputeParam = OXPConfigFlags.CAP_BW;
+                } else if (domain.isCapDelaySet()) {
+                    pathComputeParam = OXPConfigFlags.CAP_DELAY;
+                } else if (domain.isCapHopSet()) {
+                    pathComputeParam = OXPConfigFlags.CAP_HOP;
+                } else {
+                    pathComputeParam = null;
+                }
+            } else {
+                switch (pathComputeParam) {
+                    case CAP_BW:
+                        if (!domain.isCapBwSet()) pathComputeParam = null;
+                        break;
+                    case CAP_DELAY:
+                        if (!domain.isCapDelaySet()) pathComputeParam = null;
+                        break;
+                    case CAP_HOP:
+                        if (!domain.isCapHopSet()) pathComputeParam = null;
+                        break;
+                    default:
+                }
+            }
+        }
+
+        @Override
+        public void domainDisconnected(OXPDomain domain) {
+
         }
     }
 }

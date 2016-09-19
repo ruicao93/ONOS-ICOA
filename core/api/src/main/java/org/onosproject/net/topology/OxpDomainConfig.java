@@ -18,6 +18,7 @@ public class OxpDomainConfig extends Config<ApplicationId> {
     public static final String OXPVERSION = "oxpVersion";
     public static final String SUPER_IP = "superIp";
     public static final String SUPER_PORT = "superPort";
+    public static final String BOOT = "boot";
 
     public String getDomainId() {
         return object.get(ID).asText();
@@ -56,5 +57,9 @@ public class OxpDomainConfig extends Config<ApplicationId> {
 
     public int getSuperPort() {
         return object.get(SUPER_PORT).asInt();
+    }
+
+    public boolean getBootFlag() {
+        return object.get(BOOT).asBoolean();
     }
 }

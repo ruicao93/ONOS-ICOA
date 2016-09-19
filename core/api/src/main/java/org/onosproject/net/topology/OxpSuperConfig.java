@@ -9,6 +9,7 @@ import org.onosproject.net.config.Config;
 public class OxpSuperConfig extends Config<ApplicationId> {
     public static final String OXP_VERSION = "oxpVersion";
     public static final String SUPER_PORT = "superPort";
+    public static final String BOOT = "boot";
 
     public int getOxpVersin() {
         return object.get(OXP_VERSION).asInt();
@@ -18,5 +19,8 @@ public class OxpSuperConfig extends Config<ApplicationId> {
         return object.get(SUPER_PORT).asInt();
     }
 
+    public boolean getBootFlag() {
+        return object.get(BOOT).asBoolean();
+    }
 
 }

@@ -21,9 +21,11 @@ import org.onosproject.net.link.LinkService;
 import org.onosproject.net.packet.*;
 import org.onosproject.net.topology.PathService;
 import org.onosproject.net.topology.TopologyService;
+import org.onosproject.oxp.OxpSuper;
 import org.onosproject.oxp.OxpSuperMessageListener;
 import org.onosproject.oxp.domain.OxpDomainController;
 import org.onosproject.oxp.domain.OxpDomainTopoService;
+import org.onosproject.oxp.domain.OxpSuperListener;
 import org.onosproject.oxp.protocol.*;
 import org.onosproject.oxp.protocol.ver10.OXPForwardingRequestVer10;
 import org.onosproject.oxp.types.*;
@@ -94,40 +96,40 @@ public class OxpDomainRouting {
 
     private PacketProcessor packetProcessor = new ReactivePacketProcessor();
     private OxpSuperMessageListener oxpSbpMsgListener = new InternalOxpSuperMsgListener();
+    private OxpSuperListener oxpSuperListener = new InternalOxpSuperListener();
+    private boolean bootFlag = false;
 
     private static final Ip4Address broadcast = Ip4Address.valueOf("255.255.255.255");
 
 
     @Activate
     public void activate() {
-        int tryTimes = 10;
-        int i = 0;
-        while (oxpVersion == null && i < tryTimes) {
-            oxpVersion = domainController.getOxpVersion();
-            i++;
-        }
-        if (null == oxpVersion) {
-            return;
-        }
         appId = coreService.getAppId("org.onosproject.oxp");
-        oxpVersion = domainController.getOxpVersion();
-        oxpFactory = OXPFactories.getFactory(oxpVersion);
-        ofVersion = OFVersion.OF_13;
-        ofFactory = OFFactories.getFactory(ofVersion);
-        packetService.addProcessor(packetProcessor, PacketProcessor.director(4));
-        domainController.addMessageListener(oxpSbpMsgListener);
+        domainController.addOxpSuperListener(oxpSuperListener);
 
         log.info("Started");
     }
 
     @Deactivate
     public void deactivate() {
-
-        packetService.removeProcessor(packetProcessor);
+        domainController.removeOxpSuperListener(oxpSuperListener);
+        if (!bootFlag) {
+            return;
+        }
         domainController.removeMessageListener(oxpSbpMsgListener);
+        packetService.removeProcessor(packetProcessor);
         log.info("Stoped");
     }
 
+    private void setUp() {
+        bootFlag = true;
+        oxpVersion = domainController.getOxpVersion();
+        oxpFactory = OXPFactories.getFactory(oxpVersion);
+        ofVersion = OFVersion.OF_13;
+        ofFactory = OFFactories.getFactory(ofVersion);
+        domainController.addMessageListener(oxpSbpMsgListener);
+        packetService.addProcessor(packetProcessor, PacketProcessor.director(4));
+    }
 
     /**
      * 翻译Packet-out消息
@@ -521,6 +523,18 @@ public class OxpDomainRouting {
 
         @Override
         public void handleOutGoingMessage(List<OXPMessage> msgs) {
+
+        }
+    }
+
+    class InternalOxpSuperListener implements OxpSuperListener {
+        @Override
+        public void connectToSuper(OxpSuper oxpSuper) {
+            setUp();
+        }
+
+        @Override
+        public void disconnectFromSuper(OxpSuper oxpSuper) {
 
         }
     }

@@ -68,7 +68,6 @@ public class LinkDiscovery implements TimerTask {
     // Set of ports to be probed
     private final Set<Long> ports = Sets.newConcurrentHashSet();
 
-    private String domainId;
 
     /**
      * Instantiates discovery manager for the given physical switch. Creates a
@@ -101,7 +100,7 @@ public class LinkDiscovery implements TimerTask {
     public LinkDiscovery(Device device, LinkDiscoveryContext context, String domainId) {
         this.device = device;
         this.context = context;
-        this.domainId  =domainId;
+        //this.domainId  =domainId;
 
         ethPacket = new Ethernet();
         ethPacket.setEtherType(Ethernet.TYPE_LLDP);
@@ -291,10 +290,10 @@ public class LinkDiscovery implements TimerTask {
             context.packetService().emit(bpkt);
         }
         //oxp LLDP
-        if (null != domainId) {
+        if (null != context.getOXpDomainId()) {
             OXPLLDP oxplldp = OXPLLDP.oxpLLDP(Long.valueOf(device.id().toString().substring("of:".length()), 16),
                     portNumber.intValue(),
-                    Long.valueOf(domainId),
+                    Long.valueOf(context.getOXpDomainId()),
                     0xffff);
             ethPacket.setSourceMACAddress(context.fingerprint()).setPayload(oxplldp);
             OutboundPacket oxpLldpPacket = new DefaultOutboundPacket(device.id(),

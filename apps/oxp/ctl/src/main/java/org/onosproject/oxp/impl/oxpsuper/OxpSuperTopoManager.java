@@ -236,18 +236,18 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
 
 
     public Set<Path> getLoadBalancePaths(ElementId src, ElementId dst) {
-        Topology currentTopo = topologyService.currentTopology();
+        //Topology currentTopo = topologyService.currentTopology();
         return getLoadBalancePaths(currentTopo, src, dst);
     }
 
 
     public Set<Path> getLoadBalancePaths(ElementId src, ElementId dst, LinkWeight linkWeight) {
-        Topology currentTopo = topologyService.currentTopology();
+        //Topology currentTopo = topologyService.currentTopology();
         return getLoadBalancePaths(currentTopo, src, dst, linkWeight);
     }
 
     public Set<Path> getLoadBalancePaths(Topology topo, ElementId src, ElementId dst) {
-        return getLoadBalancePaths(currentTopo, src, dst, null);
+        return getLoadBalancePaths(topo, src, dst, null);
     }
 
     /**
@@ -590,7 +590,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
                 return LINK_WEIGHT_FULL;
             }
 
-            return 100 - interLinkRestBandwidth * 1.0 / linkLineSpeed * 100;//restBandwidthPersent
+            return 100 - interLinkRestBandwidth * 1.0 / linkLineSpeed * 100;//loadBwPercent, restBandwidthPersent
         }
 
         private long getLinkLineSpeed(Link link) {
@@ -876,6 +876,14 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
                 vportLoadCapabilityMap.remove(vportLocation);
             }
             vportMap.remove(domain.getDeviceId());
+        }
+    }
+
+    private class HopLinkWeight implements LinkWeight {
+        @Override
+        public double weight(TopologyEdge edge) {
+
+            return 0;
         }
     }
 }

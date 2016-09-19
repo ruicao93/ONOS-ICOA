@@ -22,6 +22,8 @@ public interface OxpSuperController {
     OXPVersion getOxpVersion();
     void setOxpVersion(OXPVersion oxpVersion);
 
+    OXPConfigFlags getPathComputeParam();
+
     int getOxpSuperPort();
     void setOxpSuperPort(int oxpSuperPort);
 

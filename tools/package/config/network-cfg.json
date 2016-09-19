@@ -2,6 +2,7 @@
     "apps":{
         "org.onosproject.oxpcfg":{
             "domain":{
+                "boot":true,
                 "id":"1",
                 "flags":1,
                 "period":10,
@@ -14,6 +15,7 @@
                 "superPort":6688
             },
             "super":{
+                "boot":true,
                 "oxpVersion":1,
                 "superPort":6688
             }

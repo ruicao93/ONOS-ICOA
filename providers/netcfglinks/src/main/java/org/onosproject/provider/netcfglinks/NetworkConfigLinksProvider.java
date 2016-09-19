@@ -262,6 +262,11 @@ public class NetworkConfigLinksProvider
         public DeviceService deviceService() {
             return deviceService;
         }
+
+        @Override
+        public String getOXpDomainId() {
+            return null;
+        }
     }
 
     LinkKey extractLinkKey(PacketContext packetContext) {

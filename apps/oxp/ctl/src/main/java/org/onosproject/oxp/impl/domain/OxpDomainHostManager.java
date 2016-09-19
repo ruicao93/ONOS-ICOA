@@ -47,37 +47,35 @@ public class OxpDomainHostManager {
     private OxpSuperMessageListener oxpMsgListener = new InternalOxpSuperMsgListener();
     private OxpSuperListener oxpSuperListener = new InternalOxpSuperListener();
     private ScheduledExecutorService executor;
+    private boolean bootFlag = false;
     @Activate
     public void activate() {
-        int tryTimes = 10;
-        int i = 0;
-        while (oxpVersion == null && i < tryTimes) {
-            oxpVersion = domainController.getOxpVersion();
-            i++;
-        }
-        if (null == oxpVersion) {
-            return;
-        }
-        oxpVersion = domainController.getOxpVersion();
-        oxpFactory = OXPFactories.getFactory(oxpVersion);
-        domainController.addMessageListener(oxpMsgListener);
         domainController.addOxpSuperListener(oxpSuperListener);
-        hostService.addListener(hostListener);
-        executor = newSingleThreadScheduledExecutor(groupedThreads("oxp/hostupdate", "oxp-hostupdate-%d", log));
-        executor.scheduleAtFixedRate(new HostUpdateTask(),
-                domainController.getPeriod(), domainController.getPeriod(), SECONDS);
         log.info("Started");
     }
 
     @Deactivate
     public void deactivate() {
+        domainController.removeOxpSuperListener(oxpSuperListener);
+        if (!bootFlag) {
+            return;
+        }
         if (executor != null) {
             executor.shutdownNow();
         }
-        hostService.removeListener(hostListener);
         domainController.removeMessageListener(oxpMsgListener);
-        domainController.removeOxpSuperListener(oxpSuperListener);
+        hostService.removeListener(hostListener);
         log.info("Stoped");
+    }
+    private void setUp() {
+        bootFlag = true;
+        oxpVersion = domainController.getOxpVersion();
+        oxpFactory = OXPFactories.getFactory(oxpVersion);
+        executor = newSingleThreadScheduledExecutor(groupedThreads("oxp/hostupdate", "oxp-hostupdate-%d", log));
+        executor.scheduleAtFixedRate(new HostUpdateTask(),
+                domainController.getPeriod(), domainController.getPeriod(), SECONDS);
+        domainController.addMessageListener(oxpMsgListener);
+        hostService.addListener(hostListener);
     }
 
     private void updateExistHosts(OXPHostRequest oxpHostRequest) {
@@ -175,6 +173,7 @@ public class OxpDomainHostManager {
     private class InternalOxpSuperListener implements OxpSuperListener {
         @Override
         public void connectToSuper(OxpSuper oxpSuper) {
+            setUp();
             updateExistHosts(null);
         }
 

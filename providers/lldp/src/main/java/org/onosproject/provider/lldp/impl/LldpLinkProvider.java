@@ -468,7 +468,7 @@ public class LldpLinkProvider extends AbstractProvider implements ProbedLinkProv
         }
 
         LinkDiscovery ld = discoverers.computeIfAbsent(device.id(),
-                                     did -> new LinkDiscovery(device, context, domainId));
+                                     did -> new LinkDiscovery(device, context));
         if (ld.isStopped()) {
             ld.start();
         }
@@ -817,6 +817,11 @@ public class LldpLinkProvider extends AbstractProvider implements ProbedLinkProv
         public String fingerprint() {
             return buildSrcMac();
         }
+
+        @Override
+        public String getOXpDomainId() {
+            return domainId;
+        }
     }
 
     static final EnumSet<NetworkConfigEvent.Type> CONFIG_CHANGED
@@ -869,6 +874,13 @@ public class LldpLinkProvider extends AbstractProvider implements ProbedLinkProv
                     SuppressionConfig cfg = cfgRegistry.getConfig(appId, SuppressionConfig.class);
                     reconfigureSuppressionRules(cfg);
                     log.trace("Network config reconfigured");
+                } else if (event.configClass().equals(OxpDomainConfig.class) &&
+                        (event.type() == NetworkConfigEvent.Type.CONFIG_ADDED ||
+                                event.type() == NetworkConfigEvent.Type.CONFIG_UPDATED)) {
+                    OxpDomainConfig oxpDomainConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"), OxpDomainConfig.class);
+                    if (oxpDomainConfig.getBootFlag()) {
+                        domainId = oxpDomainConfig.getDomainId();
+                    }
                 }
             });
         }
