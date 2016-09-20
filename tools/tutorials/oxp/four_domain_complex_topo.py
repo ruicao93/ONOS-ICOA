@@ -20,6 +20,7 @@ import logging
 import os
 def multiControllerNet():
     net = Mininet(controller=None,switch=OVSSwitch, link=TCLink, autoSetMacs=True)
+    limit_bw = 30
     controller_ips=[ "192.168.0.101", "192.168.0.102","192.168.0.103", "192.168.0.104"]
     #controller_ips=[ "10.103.90.102", "10.103.90.102","10.103.90.102", "10.103.90.102"]
     controller_list = []
@@ -38,7 +39,7 @@ def multiControllerNet():
     host_num = switch_num * 2
 
     for i in range(0, switch_num):
-        switch_list.append(net.addSwitch("s%d" % (i+1)))
+        switch_list.append(net.addSwitch("s%d" % (i+1)), bw=limit_bw)
         info("Create switch: %s \n" % switch_list[i])
         host_list.append(net.addHost("h%d" % (2*i+1)))
         host_list.append(net.addHost("h%d" % (2*i+2)))
