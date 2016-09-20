@@ -39,7 +39,7 @@ def multiControllerNet():
     host_num = switch_num * 2
 
     for i in range(0, switch_num):
-        switch_list.append(net.addSwitch("s%d" % (i+1), bw=limit_bw))
+        switch_list.append(net.addSwitch("s%d" % (i+1)))
         info("Create switch: %s \n" % switch_list[i])
         host_list.append(net.addHost("h%d" % (2*i+1)))
         host_list.append(net.addHost("h%d" % (2*i+2)))
@@ -50,7 +50,7 @@ def multiControllerNet():
         for j in range(0, 5 - 1):
             for k in range(j + 1, 5):
                 info("Add link s%d ---> s%d\n" % (i * 5 + j + 1, i * 5 + k + 1))
-                net.addLink(switch_list[i * 5 + j], switch_list[i * 5 + k])
+                net.addLink(switch_list[i * 5 + j], switch_list[i * 5 + k], bw=limit_bw)
 
     # net.addLink(switch_list[5], switch_list[6])
     # net.addLink(switch_list[5], switch_list[7])
