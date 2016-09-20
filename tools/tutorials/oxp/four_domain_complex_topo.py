@@ -39,7 +39,7 @@ def multiControllerNet():
     host_num = switch_num * 2
 
     for i in range(0, switch_num):
-        switch_list.append(net.addSwitch("s%d" % (i+1)), bw=limit_bw)
+        switch_list.append(net.addSwitch("s%d" % (i+1), bw=limit_bw))
         info("Create switch: %s \n" % switch_list[i])
         host_list.append(net.addHost("h%d" % (2*i+1)))
         host_list.append(net.addHost("h%d" % (2*i+2)))
