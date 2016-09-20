@@ -198,9 +198,25 @@ public class OxpRestResource extends AbstractWebResource {
             return ok(root).build();
         }
         // Path
-        Set<org.onosproject.net.Path> paths = get(OxpSuperTopoService.class).getPaths(srcDeviceId, dstDeviceId);
-        if (paths.isEmpty()) ;
-        org.onosproject.net.Path path = (org.onosproject.net.Path) paths.toArray()[0];
+        Set<org.onosproject.net.Path> paths = null;
+        Set<DisjointPath> dPaths = null;
+        org.onosproject.net.Path path = null;
+        if (get(OxpSuperController.class).isLoadBalance()) {
+            paths = get(OxpSuperTopoService.class).getLoadBalancePaths(srcDeviceId, dstDeviceId);
+            if (!paths.isEmpty()) {
+                path = (org.onosproject.net.Path) paths.toArray()[0];
+            }
+        } else {
+            dPaths = get(OxpSuperTopoService.class).getDisjointPaths(srcDeviceId, dstDeviceId);
+            if (!dPaths.isEmpty()) {
+                path = ((DisjointPath)dPaths.toArray()[0]).primary();
+            }
+        }
+        if (null == path) {
+            root.put("isReachable", false);
+            root.put("isDirected", false);
+            return ok(root).build();
+        }
         // result
         root.put("isReachable", true);
         root.put("isDirected", false);

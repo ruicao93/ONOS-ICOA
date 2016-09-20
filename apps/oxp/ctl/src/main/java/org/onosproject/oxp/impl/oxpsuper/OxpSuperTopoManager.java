@@ -239,7 +239,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
 
     @Override
     public Set<DisjointPath> getDisjointPaths(DeviceId src, DeviceId dst, LinkWeight weight) {
-        Topology topology = topologyService.currentTopology();
+        Topology topology = currentTopo;
         Set<DisjointPath> paths = weight == null ?
                 topologyService.getDisjointPaths(topology, src, dst) :
                 topologyService.getDisjointPaths(topology, src, dst, weight);
