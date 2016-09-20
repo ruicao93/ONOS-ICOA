@@ -35,6 +35,8 @@ import java.util.*;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.onlab.packet.Ethernet.TYPE_LLDP;
 import static org.onosproject.net.PortNumber.portNumber;
+import static org.onosproject.security.AppGuard.checkPermission;
+import static org.onosproject.security.AppPermission.Type.TOPOLOGY_READ;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
@@ -147,6 +149,14 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     }
 
     @Override
+    public long getInterLinkLoadCapability(Link link) {
+        checkNotNull(link);
+        long srcVportCapability = getVportLoadCapability(link.src());
+        long dstVportCapability = getVportLoadCapability(link.dst());
+        return Long.max(srcVportCapability, dstVportCapability);
+    }
+
+    @Override
     public OXPInternalLink getIntraLinkDesc(Link link) {
         return internalLinkDescMap.get(link);
     }
@@ -222,6 +232,20 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         return paths;
     }
 
+    @Override
+    public Set<DisjointPath> getDisjointPaths(DeviceId src, DeviceId dst) {
+        return getDisjointPaths(src, dst, (LinkWeight) null);
+    }
+
+    @Override
+    public Set<DisjointPath> getDisjointPaths(DeviceId src, DeviceId dst, LinkWeight weight) {
+        Topology topology = topologyService.currentTopology();
+        Set<DisjointPath> paths = weight == null ?
+                topologyService.getDisjointPaths(topology, src, dst) :
+                topologyService.getDisjointPaths(topology, src, dst, weight);
+
+        return paths;
+    }
 
     //=================== Start =====================
 //    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)

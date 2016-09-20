@@ -9,6 +9,7 @@ import org.onosproject.net.*;
 import org.onosproject.oxp.OXPDomain;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.oxpsuper.OxpSuperTopoService;
+import org.onosproject.oxp.protocol.OXPConfigFlags;
 import org.onosproject.oxp.protocol.OXPType;
 import org.onosproject.oxp.types.OXPHost;
 import org.onosproject.rest.AbstractWebResource;
@@ -57,6 +58,10 @@ public class OxpRestResource extends AbstractWebResource {
         root.put("domainCount", domainCount)
                 .put("linkCount", linkCount)
                 .put("hostCount", hostCount);
+        boolean isLoadBalance = get(OxpSuperController.class).isLoadBalance();
+        root.put("isLoadBalance", isLoadBalance);
+        OXPConfigFlags pathComputeParam = get(OxpSuperController.class).getPathComputeParam();
+        root.put("pathComputeParam", pathComputeParam.name());
         ArrayNode domainArray = root.putArray("domains");
         for (OXPDomain domain : get(OxpSuperController.class).getOxpDomains()) {
             ObjectNode domainNode = mapper().createObjectNode();
@@ -96,6 +101,7 @@ public class OxpRestResource extends AbstractWebResource {
             linkNode.put("srcVport", link.src().port().toLong());
             linkNode.put("dstVport", link.dst().port().toLong());
             linkNode.put("capability", get(OxpSuperTopoService.class).getInterLinkCapability(link));
+            linkNode.put("loadCapability", get(OxpSuperTopoService.class).getInterLinkLoadCapability(link));
             array.add(linkNode);
         }
         return ok(root).build();
@@ -257,4 +263,21 @@ public class OxpRestResource extends AbstractWebResource {
         return ok(root).build();
     }
 
+    @GET
+    @Path("/isLoadBalance")
+    public Response isLoadBalance() {
+        ObjectNode root = mapper().createObjectNode();
+        boolean isLoadBalance = get(OxpSuperController.class).isLoadBalance();
+        root.put("isLoadBalance", isLoadBalance);
+        return ok(root).build();
+    }
+
+    @GET
+    @Path("/setLoadBalance/{flag}")
+    public Response isLoadBalance(@PathParam("flag") boolean flag) {
+        ObjectNode root = mapper().createObjectNode();
+        boolean result = get(OxpSuperController.class).setLoadBalance(flag);
+        root.put("isSuccess", result);
+        return ok(root).build();
+    }
 }

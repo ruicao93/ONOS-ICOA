@@ -67,6 +67,7 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     private OXPFactory oxpFactory;
     private OxpSuperConfig superConfig;
     private OXPConfigFlags pathComputeParam = OXPConfigFlags.CAP_BW;
+    private boolean isLoadBalance = true;
 
     @Activate
     public void activate() {
@@ -127,8 +128,28 @@ public class OxpSuperControllerImpl implements OxpSuperController {
         this.oxpVersion = oxpVersion;
     }
 
+    @Override
     public OXPConfigFlags getPathComputeParam() {
         return pathComputeParam;
+    }
+
+    @Override
+    public boolean isLoadBalance() {
+        return isLoadBalance;
+    }
+
+    @Override
+    public boolean setLoadBalance(boolean isLoadBalance) {
+        if (isLoadBalance == false) {
+            this.isLoadBalance = isLoadBalance;
+            return true;
+        }
+        if (isLoadBalance()) return true;
+        if (getPathComputeParam() != null) {
+            this.isLoadBalance = isLoadBalance;
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -351,6 +372,7 @@ public class OxpSuperControllerImpl implements OxpSuperController {
     class InternalDomainListener implements OxpDomainListener {
         @Override
         public void domainConnected(OXPDomain domain) {
+            if (!domain.isAdvancedMode()) isLoadBalance = false;
             if (pathComputeParam == null) return;
             if (getOxpDomains().size() == 1) {
                 if (domain.isCapBwSet()) {

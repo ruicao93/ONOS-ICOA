@@ -23,6 +23,8 @@ public interface OxpSuperController {
     void setOxpVersion(OXPVersion oxpVersion);
 
     OXPConfigFlags getPathComputeParam();
+    boolean isLoadBalance();
+    boolean setLoadBalance(boolean isLoadBalance);
 
     int getOxpSuperPort();
     void setOxpSuperPort(int oxpSuperPort);

@@ -24,6 +24,7 @@ public interface OxpSuperTopoService {
     List<Link> getInterlinks();
 
     long getInterLinkCapability(Link link);
+    long getInterLinkLoadCapability(Link link);
 
     List<Link> getIntraLinks(DeviceId deviceId);
 
@@ -45,6 +46,10 @@ public interface OxpSuperTopoService {
     Set<Path> getPaths(DeviceId src, DeviceId dst);
 
     Set<Path> getPaths(DeviceId src, DeviceId dst, LinkWeight weight);
+
+    Set<DisjointPath> getDisjointPaths(DeviceId src, DeviceId dst);
+
+    Set<DisjointPath> getDisjointPaths(DeviceId src, DeviceId dst, LinkWeight weight);
 
     /**
      * Core Entry of routing function.
