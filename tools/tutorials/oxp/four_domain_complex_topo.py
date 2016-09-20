@@ -50,7 +50,7 @@ def multiControllerNet():
         for j in range(0, 5 - 1):
             for k in range(j + 1, 5):
                 info("Add link s%d ---> s%d\n" % (i * 5 + j + 1, i * 5 + k + 1))
-                net.addLink(switch_list[i * 5 + j], switch_list[i * 5 + k], bw=limit_bw)
+                net.addLink(switch_list[i * 5 + j], switch_list[i * 5 + k])
 
     # net.addLink(switch_list[5], switch_list[6])
     # net.addLink(switch_list[5], switch_list[7])
@@ -64,14 +64,14 @@ def multiControllerNet():
     # net.addLink(switch_list[8], switch_list[9])
 
     # domain1 -> others
-    net.addLink(switch_list[4], switch_list[6] )
-    net.addLink(switch_list[4], switch_list[10] )
+    net.addLink(switch_list[4], switch_list[6], bw=limit_bw )
+    net.addLink(switch_list[4], switch_list[10], bw=limit_bw )
     # domain2 -> others
-    net.addLink(switch_list[7], switch_list[18] )
+    net.addLink(switch_list[7], switch_list[18], bw=limit_bw )
 
     # domain3 -> others
-    net.addLink(switch_list[10], switch_list[16] )
-    net.addLink(switch_list[7], switch_list[10] )
+    net.addLink(switch_list[10], switch_list[16], bw=limit_bw )
+    net.addLink(switch_list[7], switch_list[10], bw=limit_bw )
 
     net.build()
     for controller in controller_list:
