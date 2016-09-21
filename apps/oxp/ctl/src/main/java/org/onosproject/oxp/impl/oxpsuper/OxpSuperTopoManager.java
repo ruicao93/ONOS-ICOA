@@ -102,6 +102,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         internalLinkDescMap = new HashMap<>();
         interLinkSet = new HashSet<>();
         hostMap = new HashMap<>();
+        interLinkTimes = new HashMap<>();
         superController.addMessageListener(domainMessageListener);
         superController.addOxpDomainListener(domainListener);
         executor = newSingleThreadScheduledExecutor(groupedThreads("oxp/supertopoupdate", "oxp-supertopoupdate-%d", log));
@@ -124,6 +125,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         internalLinkDescMap.clear();
         interLinkSet.clear();
         hostMap.clear();
+        interLinkTimes.clear();
     }
 
     @Override
@@ -941,17 +943,19 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     class TopoPrunerTask implements Runnable {
         @Override
         public void run() {
-            Maps.filterEntries(interLinkTimes, e -> {
-                if (isStale(e.getValue())) {
-                    removeInterLink(e.getKey());
-                    return false;
+            for (Link link : interLinkSet) {
+                if (isStale(interLinkTimes.get(link))) {
+                    removeInterLink(link);
+                    log.info("InterLink : {}--->{} is stale, remove it.", link.src().deviceId(), link.dst().deviceId());
                 }
-                return true;
-            }).clear();
+                log.info("InterLink : {}--->{} is in date, keep it. Live time: {}", link.src().deviceId(), link.dst().deviceId(),
+                        System.currentTimeMillis() - interLinkTimes.get(link));
+            }
+
         }
 
         private boolean isStale(long lastSeen) {
-            return staleTopoAge < System.currentTimeMillis() - lastSeen;
+            return lastSeen < System.currentTimeMillis() - staleTopoAge;
         }
     }
 }

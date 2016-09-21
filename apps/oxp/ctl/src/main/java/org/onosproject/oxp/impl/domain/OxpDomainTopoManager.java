@@ -586,13 +586,19 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
     class VportPrunerTask implements Runnable {
         @Override
         public void run() {
-            Maps.filterEntries(vportTimes, e -> {
-                if (isStale(e.getValue())) {
-                    vportVanished(e.getKey());
-                    return false;
+            Set<PortNumber> toRemoedVports = new HashSet<>();
+            for (ConnectPoint location : vportMap.keySet()) {
+                PortNumber vportNum = vportMap.get(location);
+                if (isStale(vportTimes.get(vportNum))) {
+                    toRemoedVports.add(vportNum);
+                    log.info("Vport : {} is stale, remove it.", vportNum);
+                } else {
+                    log.info("Vport : {} is in date, keep it. Live time:{}", vportNum,System.currentTimeMillis() - vportTimes.get(vportNum));
                 }
-                return true;
-            }).clear();
+            }
+            for (PortNumber vport : toRemoedVports) {
+                vportVanished(vport);
+            }
         }
 
         boolean isStale(long lastSeen) {
