@@ -283,22 +283,22 @@ public class LldpLinkProvider extends AbstractProvider implements ProbedLinkProv
         cfgListener.reconfigureSuppressionRules(cfg);
 
         modified(context);
-
-        OxpDomainConfig oxpDomainConfig = null;
-        int tryTimes = 10;
-        int i = 0;
-        while (oxpDomainConfig == null && i < tryTimes) {
-            oxpDomainConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"),OxpDomainConfig.class);
-            i++;
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        if (null != oxpDomainConfig) {
-            domainId = oxpDomainConfig.getDomainId();
-        }
+//
+//        OxpDomainConfig oxpDomainConfig = null;
+//        int tryTimes = 10;
+//        int i = 0;
+//        while (oxpDomainConfig == null && i < tryTimes) {
+//            oxpDomainConfig = cfgRegistry.getConfig(coreService.registerApplication("org.onosproject.oxpcfg"),OxpDomainConfig.class);
+//            i++;
+//            try {
+//                Thread.sleep(1000);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//        if (null != oxpDomainConfig) {
+//            domainId = oxpDomainConfig.getDomainId();
+//        }
 
         log.info("Started");
     }

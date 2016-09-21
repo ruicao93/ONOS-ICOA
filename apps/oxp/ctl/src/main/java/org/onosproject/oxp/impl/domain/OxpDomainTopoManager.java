@@ -1,5 +1,6 @@
 package org.onosproject.oxp.impl.domain;
 
+import com.google.common.collect.Maps;
 import org.apache.felix.scr.annotations.*;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -100,14 +101,20 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
     private AtomicLong vportNo = new AtomicLong(1);
     private Map<ConnectPoint, PortNumber> vportMap = new HashMap<>();
     private Map<PortNumber, Long> vportCapabilityMap = new HashMap<>();
+    private Map<PortNumber, Long> vportTimes = new HashMap<>();
     private Map<ConnectPoint, PortNumber> vportAllocateCache = new HashMap<>();
     private Set<Link> intraLinkSet = new HashSet<>();
     private boolean bootFlag = false;
+
+    private long staleVportAge = 10000;
+
 
     private ScheduledExecutorService executor;
 
     private final static int LLDP_VPORT_LOCAL = 0xffff;
     private final static long DEFAULT_VPORT_CAP = 0;
+    private final static long VPORT_PRUNER_DELAY = 3;
+
 
     @Activate
     public void activate() {
@@ -132,6 +139,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         vportCapabilityMap.clear();
         intraLinkSet.clear();
         vportAllocateCache.clear();
+        vportTimes.clear();
         log.info("Stoped");
     }
 
@@ -148,11 +156,30 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         executor = newSingleThreadScheduledExecutor(groupedThreads("oxp/topoupdate", "oxp-topoupdate-%d", log));
         executor.scheduleAtFixedRate(new TopoUpdateTask(),
                 domainController.getPeriod(), domainController.getPeriod(), SECONDS);
+        executor.scheduleAtFixedRate(new VportPrunerTask(),
+                VPORT_PRUNER_DELAY, VPORT_PRUNER_DELAY, SECONDS);
     }
 
     private void sendTopoReplyMsg(List<OXPInternalLink> oxpInternalLinks) {
 
         //TODO
+    }
+
+    private void addVportInternal(ConnectPoint location, PortNumber vportNum) {
+        vportMap.put(location, vportNum);
+        vportCapabilityMap.put(vportNum, DEFAULT_VPORT_CAP);
+        touchVport(vportNum);
+    }
+
+    private void removeVPortInternal(PortNumber vportNum) {
+        ConnectPoint location = getLocationByVport(vportNum);
+        checkNotNull(location);
+        vportMap.remove(location);
+        vportCapabilityMap.remove(vportNum);
+    }
+
+    private void touchVport(PortNumber vportNum) {
+        vportTimes.put(vportNum, System.currentTimeMillis());
     }
 
 
@@ -167,17 +194,34 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
     }
     private void addOrUpdateVport(ConnectPoint edgeConnectPoint, OXPVportState vportState, OXPVportReason reason) {
         checkNotNull(edgeConnectPoint);
+        if (reason.equals(OXPVportReason.ADD) && vportMap.containsKey(edgeConnectPoint)) {
+            touchVport(vportMap.get(edgeConnectPoint));
+            return;
+        }
         if (reason.equals(OXPVportReason.ADD) && !vportMap.containsKey(edgeConnectPoint)) {
             // 添加Vport
             // 1.分配Vport号,并记录<ConnectPoint, vportNo>
             PortNumber allocatedVportNum = allocateVportNo(edgeConnectPoint);
-            vportMap.put(edgeConnectPoint, allocatedVportNum);
-            vportCapabilityMap.put(allocatedVportNum, DEFAULT_VPORT_CAP);
+            addVportInternal(edgeConnectPoint, allocatedVportNum);
         }
         // 1.获取对应的vportNum
         PortNumber vportNum = vportMap.get(edgeConnectPoint);
         // 2.构造vportStatus消息:
         //    Reason:Add, State:Live
+        if (reason.equals(OXPVportReason.DELETE)) {
+            removeVPortInternal(vportNum);
+        }
+        updateVportToSuper(vportNum, vportState, reason);
+        updateTopo();
+    }
+
+    private void updateVportsToSuper() {
+        for (PortNumber vportNum : vportMap.values()) {
+            updateVportToSuper(vportNum, OXPVportState.LIVE, OXPVportReason.ADD);
+        }
+    }
+
+    private void updateVportToSuper(PortNumber vportNum, OXPVportState vportState, OXPVportReason reason) {
         OXPVport vport = OXPVport.ofShort((short) vportNum.toLong());
         Set<OXPVportState> state = new HashSet<>();
         state.add(vportState);
@@ -190,16 +234,11 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                 .build();
         // 3.发送vportStatus消息到Super
         domainController.write(msg);
-        if (reason.equals(OXPVportReason.DELETE)) {
-            vportMap.remove(edgeConnectPoint);
-        }
-        updateTopo();
     }
 
     private void updateTopo() {
         // if mode is Advanced: synchronize intra links
         // else if mode is Simple: only send information of vport
-
         List<OXPInternalLink> internalLinks = new ArrayList<>();
         Set<PortNumber> hasHandledVport = new HashSet<>();
         for (ConnectPoint srcConnectPoint : vportMap.keySet()) {
@@ -339,6 +378,11 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         return srcMac;
     }
 
+    private void vportVanished(PortNumber vportNum) {
+        ConnectPoint location = getLocationByVport(vportNum);
+        checkNotNull(location);
+        addOrUpdateVport(location,OXPVportState.BLOCKED, OXPVportReason.DELETE);
+    }
 
 
     private class InternalLinkListener implements LinkListener {
@@ -445,8 +489,11 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                 context.block();
             }else {
                 //若lldp包携带对端vport号,则需将此lldp上报Super,以使Super可以发现邻间链路
-                if (null == getVportNum(edgeConnectPoint)) {
+                PortNumber exsitVportNum = getVportNum(edgeConnectPoint);
+                if (null == exsitVportNum) {
                     addOrUpdateVport(edgeConnectPoint, OXPVportState.LIVE, OXPVportReason.ADD);
+                } else {
+
                 }
                 //为隐蔽domain域内信息,重写lldp,将portNo改为VportNo
                 // Send lldp to Super throuth SBP message
@@ -529,7 +576,27 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
     class TopoUpdateTask implements Runnable {
         @Override
         public void run() {
+            // update vport
+            updateVportsToSuper();
+            // update intra_links
             updateTopo();
+        }
+    }
+
+    class VportPrunerTask implements Runnable {
+        @Override
+        public void run() {
+            Maps.filterEntries(vportTimes, e -> {
+                if (isStale(e.getValue())) {
+                    vportVanished(e.getKey());
+                    return false;
+                }
+                return true;
+            }).clear();
+        }
+
+        boolean isStale(long lastSeen) {
+            return lastSeen < System.currentTimeMillis() - staleVportAge;
         }
     }
 }

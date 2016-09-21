@@ -3,6 +3,7 @@ package org.onosproject.oxp.impl.oxpsuper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.apache.felix.scr.annotations.*;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -19,6 +20,7 @@ import org.onosproject.net.provider.ProviderId;
 import org.onosproject.net.topology.*;
 import org.onosproject.oxp.OXPDomain;
 import org.onosproject.oxp.OxpDomainMessageListener;
+import org.onosproject.oxp.impl.domain.OxpDomainTopoManager;
 import org.onosproject.oxp.oxpsuper.OxpDomainListener;
 import org.onosproject.oxp.oxpsuper.OxpSuperController;
 import org.onosproject.oxp.oxpsuper.OxpSuperTopoService;
@@ -31,9 +33,14 @@ import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.slf4j.Logger;
 
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.onlab.packet.Ethernet.TYPE_LLDP;
+import static org.onlab.util.Tools.groupedThreads;
 import static org.onosproject.net.PortNumber.portNumber;
 import static org.onosproject.security.AppGuard.checkPermission;
 import static org.onosproject.security.AppPermission.Type.TOPOLOGY_READ;
@@ -69,6 +76,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     private ProviderId internalLinksProviderId = ProviderId.NONE;//new ProviderId("oxp","internalLinks");
     // 记录interLinks
     private Set<Link> interLinkSet;
+    private Map<Link, Long> interLinkTimes;
     private ProviderId interLinksProviderId = ProviderId.NONE;//new ProviderId("'oxp", "interlinks");
     // 记录HostLocation
     private Map<DeviceId, Map<HostId, OXPHost>> hostMap;
@@ -78,6 +86,11 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
                     new DefaultGraphDescription(0L, System.currentTimeMillis(),
                             Collections.<Device>emptyList(),
                             Collections.<Link>emptyList()));
+
+    private ScheduledExecutorService executor;
+    protected ExecutorService eventExecutor;
+    private final static long TOPO_PRUNER_DELAY = 3;
+    private long staleTopoAge = 10000;
 
     @Activate
     private void activate() {
@@ -91,10 +104,16 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         hostMap = new HashMap<>();
         superController.addMessageListener(domainMessageListener);
         superController.addOxpDomainListener(domainListener);
+        executor = newSingleThreadScheduledExecutor(groupedThreads("oxp/supertopoupdate", "oxp-supertopoupdate-%d", log));
+        executor.scheduleAtFixedRate(new TopoPrunerTask(),
+                TOPO_PRUNER_DELAY, TOPO_PRUNER_DELAY, SECONDS);
     }
 
     @Deactivate
     private void deactivate() {
+        if (executor != null) {
+            executor.shutdownNow();
+        }
         superController.removeMessageListener(domainMessageListener);
         superController.removeOxpDomainListener(domainListener);
         vportMap.clear();
@@ -135,6 +154,9 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         return getVportMaxCapability(portLocation) - getVportLoadCapability(portLocation);
     }
 
+    private void touchInterLink(Link link) {
+        interLinkTimes.put(link, System.currentTimeMillis());
+    }
     @Override
     public List<Link> getInterlinks() {
         return ImmutableList.copyOf(interLinkSet);
@@ -694,6 +716,10 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
 
     }
 
+    private void removeInterLink(Link link) {
+        interLinkSet.remove(link);
+    }
+
     private void removeVport(DeviceId deviceId, PortNumber vportNum) {
         Set<PortNumber> vportSet = vportMap.get(deviceId);
         if (null != vportSet) {
@@ -710,7 +736,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
             }
         }
         for (Link link : toRemovedLinks) {
-            interLinkSet.remove(link);
+            removeInterLink(link);
         }
         if (!toRemovedLinks.isEmpty()) updateTopology();
     }
@@ -782,9 +808,11 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
                 .providerId(interLinksProviderId)
                 .build();
         if (interLinkSet.contains(link)) {
+            touchInterLink(link);
             return;
         }
         interLinkSet.add(link);
+        touchInterLink(link);
         updateTopology();
     }
 
@@ -908,6 +936,22 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         public double weight(TopologyEdge edge) {
 
             return 0;
+        }
+    }
+    class TopoPrunerTask implements Runnable {
+        @Override
+        public void run() {
+            Maps.filterEntries(interLinkTimes, e -> {
+                if (isStale(e.getValue())) {
+                    removeInterLink(e.getKey());
+                    return false;
+                }
+                return true;
+            }).clear();
+        }
+
+        private boolean isStale(long lastSeen) {
+            return staleTopoAge < System.currentTimeMillis() - lastSeen;
         }
     }
 }
