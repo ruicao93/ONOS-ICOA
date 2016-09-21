@@ -591,9 +591,9 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                 PortNumber vportNum = vportMap.get(location);
                 if (isStale(vportTimes.get(vportNum))) {
                     toRemoedVports.add(vportNum);
-                    log.info("Vport : {} is stale, remove it.", vportNum);
+                    log.debug("Vport : {} is stale, remove it.", vportNum);
                 } else {
-                    log.info("Vport : {} is in date, keep it. Live time:{}", vportNum,System.currentTimeMillis() - vportTimes.get(vportNum));
+                    log.debug("Vport : {} is in date, keep it. Live time:{}", vportNum,System.currentTimeMillis() - vportTimes.get(vportNum));
                 }
             }
             for (PortNumber vport : toRemoedVports) {

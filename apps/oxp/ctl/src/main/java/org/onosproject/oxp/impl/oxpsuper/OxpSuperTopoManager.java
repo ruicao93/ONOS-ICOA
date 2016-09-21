@@ -946,9 +946,9 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
             for (Link link : interLinkSet) {
                 if (isStale(interLinkTimes.get(link))) {
                     removeInterLink(link);
-                    log.info("InterLink : {}--->{} is stale, remove it.", link.src().deviceId(), link.dst().deviceId());
+                    log.debug("InterLink : {}--->{} is stale, remove it.", link.src().deviceId(), link.dst().deviceId());
                 }
-                log.info("InterLink : {}--->{} is in date, keep it. Live time: {}", link.src().deviceId(), link.dst().deviceId(),
+                log.debug("InterLink : {}--->{} is in date, keep it. Live time: {}", link.src().deviceId(), link.dst().deviceId(),
                         System.currentTimeMillis() - interLinkTimes.get(link));
             }
 
