@@ -21,7 +21,7 @@ import os
 def multiControllerNet():
     net = Mininet(controller=None,switch=OVSSwitch, link=TCLink, autoSetMacs=True)
     limit_bw = 30
-    controller_ips=[ "192.168.0.101", "192.168.0.102","192.168.0.103", "192.168.0.104"]
+    controller_ips=[ "192.168.1.5", "192.168.1.3","192.168.1.6", "192.168.1.7"]
     #controller_ips=[ "10.103.90.102", "10.103.90.102","10.103.90.102", "10.103.90.102"]
     controller_list = []
     switch_list = []
