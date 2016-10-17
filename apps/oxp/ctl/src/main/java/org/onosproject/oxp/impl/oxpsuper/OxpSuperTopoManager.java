@@ -177,7 +177,7 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
         checkNotNull(link);
         long srcVportCapability = getVportLoadCapability(link.src());
         long dstVportCapability = getVportLoadCapability(link.dst());
-        return Long.max(srcVportCapability, dstVportCapability);
+        return Long.min(srcVportCapability, dstVportCapability);
     }
 
     @Override
@@ -188,6 +188,12 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
     @Override
     public List<Link> getIntraLinks(DeviceId deviceId) {
         return ImmutableList.copyOf(internalLinksMap.get(deviceId));
+    }
+
+    public long getIntraLinkCapability(Link link) {
+        OXPInternalLink intraLinkDesc = getIntraLinkDesc(link);
+        if (null == intraLinkDesc) return Long.MAX_VALUE;
+        return intraLinkDesc.getCapability();
     }
 
 
@@ -541,25 +547,60 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
      * @return whose count of all links is lowest.
      */
     private Path getMinCostMinHopPath(List<Path> paths) {
-
-        final double MEASURE_TOLERANCE = 0.05; // 0.05% represent 5M(10G), 12.5M(25G), 50M(100G)
-
-        //Sort by Cost in order
-        paths.sort((p1, p2) -> p1.cost() > p2.cost() ? 1 : (p1.cost() < p2.cost() ? -1 : 0));
-
-        // get paths with similar lowest cost within MEASURE_TOLERANCE range.
-        List<Path> minCostPaths = new ArrayList<>();
-        Path result = paths.get(0);
-        minCostPaths.add(result);
-        for (int i = 1, pathCount = paths.size(); i < pathCount; i++) {
-            Path temp = paths.get(i);
-            if (temp.cost() - result.cost() < MEASURE_TOLERANCE) {
-                minCostPaths.add(temp);
+        Path result = null;
+        List<Path> newPaths = ImmutableList.of();
+        // Add intra capability
+        if (superController.getPathComputeParam().equals(OXPConfigFlags.CAP_HOP)) {
+            for (Path path : paths) {
+                double cost = path.cost();
+                Link formerLink = null;
+                for (Link link : path.links()) {
+                    if (!path.src().equals(link)) {
+                        Link intraLink = DefaultLink.builder()
+                                .src(formerLink.dst())
+                                .dst(link.src())
+                                .type(Link.Type.DIRECT)
+                                .state(Link.State.ACTIVE)
+                                .providerId(internalLinksProviderId)
+                                .build();
+                        OXPInternalLink intraLinkDesc = getIntraLinkDesc(intraLink);
+                        long intraHop = intraLinkDesc.getCapability();
+                        if (intraHop == Long.MAX_VALUE) {
+                            cost = Double.MAX_VALUE;
+                            break;
+                        } else {
+                            cost += intraHop;
+                        }
+                    }
+                    formerLink = link;
+                }
+                if (cost >= Double.MAX_VALUE) continue;
+                Path newPath = new DefaultPath(routeProviderId, path.links(), cost);
+                newPaths.add(newPath);
             }
+            //Sort by Cost in order
+            newPaths.sort((p1, p2) -> p1.cost() > p2.cost() ? 1 : (p1.cost() < p2.cost() ? -1 : 0));
+            return newPaths.isEmpty() ? null : newPaths.get(0);
+        } else if (superController.getPathComputeParam().equals(OXPConfigFlags.CAP_DELAY)) {
+            return null;
+        } else {
+            final double MEASURE_TOLERANCE = 0.05; // 0.05% represent 5M(10G), 12.5M(25G), 50M(100G)
+
+            //Sort by Cost in order
+            paths.sort((p1, p2) -> p1.cost() > p2.cost() ? 1 : (p1.cost() < p2.cost() ? -1 : 0));
+
+            // get paths with similar lowest cost within MEASURE_TOLERANCE range.
+            List<Path> minCostPaths = new ArrayList<>();
+            result = paths.get(0);
+            minCostPaths.add(result);
+            for (int i = 1, pathCount = paths.size(); i < pathCount; i++) {
+                Path temp = paths.get(i);
+                if (temp.cost() - result.cost() < MEASURE_TOLERANCE) {
+                    minCostPaths.add(temp);
+                }
+            }
+            result = getMinHopPath(minCostPaths);
         }
-
-        result = getMinHopPath(minCostPaths);
-
         return result;
     }
     //=================== Step Four: Build whole Path, with edge links =====================
@@ -628,17 +669,22 @@ public class OxpSuperTopoManager implements OxpSuperTopoService {
                 return LINK_WEIGHT_DOWN;
             }
 
+            if (superController.getPathComputeParam().equals(OXPConfigFlags.CAP_HOP)) {
+                return 1;
+            } else if (superController.getPathComputeParam().equals(OXPConfigFlags.CAP_DELAY)) {
+                return getInterLinkCapability(edge.link());
+            } else {
+                long linkLineSpeed = getLinkLineSpeed(edge.link());
 
-            long linkLineSpeed = getLinkLineSpeed(edge.link());
+                //FIXME - Bata1: Here, assume the value in the map is the rest bandwidth of inter-demain link
+                long interLinkRestBandwidth = getInterLinkCapability(edge.link());
 
-            //FIXME - Bata1: Here, assume the value in the map is the rest bandwidth of inter-demain link
-            long interLinkRestBandwidth = getInterLinkCapability(edge.link());
+                if (interLinkRestBandwidth <= 0) {
+                    return LINK_WEIGHT_FULL;
+                }
 
-            if (interLinkRestBandwidth <= 0) {
-                return LINK_WEIGHT_FULL;
+                return 100 - interLinkRestBandwidth * 1.0 / linkLineSpeed * 100;//loadBwPercent, restBandwidthPersent
             }
-
-            return 100 - interLinkRestBandwidth * 1.0 / linkLineSpeed * 100;//loadBwPercent, restBandwidthPersent
         }
 
         private long getLinkLineSpeed(Link link) {

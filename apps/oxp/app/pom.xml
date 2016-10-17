@@ -35,7 +35,11 @@
             <artifactId>onos-oxp-rest</artifactId>
             <version>${project.version}</version>
         </dependency>
-
+        <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-oxp-cli</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

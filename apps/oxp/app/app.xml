@@ -23,4 +23,5 @@
     <artifact>mvn:${project.groupId}/onos-oxp-api/${project.version}</artifact>
     <artifact>mvn:${project.groupId}/onos-oxp-ctl/${project.version}</artifact>
     <artifact>mvn:${project.groupId}/onos-oxp-rest/${project.version}</artifact>
+    <artifact>mvn:${project.groupId}/onos-oxp-cli/${project.version}</artifact>
 </app>

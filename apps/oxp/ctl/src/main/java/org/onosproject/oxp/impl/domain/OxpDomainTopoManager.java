@@ -316,13 +316,25 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
         }
     }
 
+    private long getIntraLinkLoadBw(ConnectPoint srcConnectPoint, ConnectPoint dstConnectPoint) {
+        return Long.min(getVportLoadCapability(srcConnectPoint), getVportLoadCapability(dstConnectPoint));
+    }
+
+    private long getIntraLinkMaxBw(ConnectPoint srcConnectPoint, ConnectPoint dstConnectPoint) {
+        return Long.min(getVportMaxCapability(srcConnectPoint), getVportMaxCapability(dstConnectPoint));
+    }
+
+    private long getIntraLinkRestBw(ConnectPoint srcConnectPoint, ConnectPoint dstConnectPoint) {
+        return getIntraLinkMaxBw(srcConnectPoint, dstConnectPoint) - getIntraLinkLoadBw(srcConnectPoint, dstConnectPoint);
+    }
+
     private long getIntraLinkCapability(ConnectPoint srcConnectPoint, ConnectPoint dstConnectPoint) {
         if (domainController.isCapBwSet()) {
             if (srcConnectPoint.deviceId().equals(dstConnectPoint.deviceId())
                     || !pathService.getPaths(srcConnectPoint.deviceId(), dstConnectPoint.deviceId()).isEmpty()) {
-                long srcVportCap = getVportRestCapability(srcConnectPoint);
-                long dstVportCap = getVportRestCapability(dstConnectPoint);
-                return Long.min(srcVportCap, dstVportCap);
+//                long srcVportCap = getVportRestCapability(srcConnectPoint);
+//                long dstVportCap = getVportRestCapability(dstConnectPoint);
+                return getIntraLinkLoadBw(srcConnectPoint, dstConnectPoint) / getIntraLinkMaxBw(srcConnectPoint, dstConnectPoint) * 100;
             } else {
                 return Long.MIN_VALUE;
             }

@@ -19,6 +19,7 @@
         <module>api</module>
         <module>ctl</module>
         <module>rest</module>
+        <module>cli</module>
 
     </modules>
 
