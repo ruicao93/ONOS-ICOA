@@ -334,6 +334,7 @@ public class OxpDomainTopoManager implements OxpDomainTopoService {
                     || !pathService.getPaths(srcConnectPoint.deviceId(), dstConnectPoint.deviceId()).isEmpty()) {
 //                long srcVportCap = getVportRestCapability(srcConnectPoint);
 //                long dstVportCap = getVportRestCapability(dstConnectPoint);
+                // Fixme: should compute along the path
                 return getIntraLinkLoadBw(srcConnectPoint, dstConnectPoint) / getIntraLinkMaxBw(srcConnectPoint, dstConnectPoint) * 100;
             } else {
                 return Long.MIN_VALUE;

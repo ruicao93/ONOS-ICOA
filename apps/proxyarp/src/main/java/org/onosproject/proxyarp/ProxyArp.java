@@ -88,7 +88,7 @@ public class ProxyArp {
         cfgService.registerProperties(getClass());
         appId = coreService.registerApplication("org.onosproject.proxyarp");
 
-        packetService.addProcessor(processor, PacketProcessor.director(1));
+        packetService.addProcessor(processor, PacketProcessor.director(2));
         readComponentConfiguration(context);
         requestPackets();
 
@@ -216,12 +216,13 @@ public class ProxyArp {
             }
             ARP arp = (ARP) ethPkt.getPayload();
 
-            IpAddress target = Ip4Address.valueOf(arp.getTargetProtocolAddress());
-            IpAddress sender = Ip4Address.valueOf(arp.getSenderProtocolAddress());
-            Set<Host> hosts =  hostService.getHostsByIp(target);
-            if (null == hosts || hosts.isEmpty()) {
-                return;
-            }
+//            // Intercept for OXP
+//            IpAddress target = Ip4Address.valueOf(arp.getTargetProtocolAddress());
+//            IpAddress sender = Ip4Address.valueOf(arp.getSenderProtocolAddress());
+//            Set<Host> hosts =  hostService.getHostsByIp(target);
+//            if (null == hosts || hosts.isEmpty()) {
+//                return;
+//            }
             proxyArpService.handlePacket(context);
 
 //            else if (ipv6NeighborDiscovery && ethPkt.getEtherType() == TYPE_IPV6) {

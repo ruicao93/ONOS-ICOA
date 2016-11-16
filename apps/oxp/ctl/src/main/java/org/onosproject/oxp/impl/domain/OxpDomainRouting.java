@@ -128,7 +128,7 @@ public class OxpDomainRouting {
         ofVersion = OFVersion.OF_13;
         ofFactory = OFFactories.getFactory(ofVersion);
         domainController.addMessageListener(oxpSbpMsgListener);
-        packetService.addProcessor(packetProcessor, PacketProcessor.director(4));
+        packetService.addProcessor(packetProcessor, PacketProcessor.director(1)); //Handle before other APPs
     }
 
     /**
@@ -402,6 +402,11 @@ public class OxpDomainRouting {
                 return;
             }
 
+            // Only handle packet when has connected to OXP Super controller
+            if (!domainController.isConnectToSuper()) {
+                return;
+            }
+
             InboundPacket pkt = context.inPacket();
             Ethernet ethPkt = pkt.parsed();
 
@@ -427,7 +432,7 @@ public class OxpDomainRouting {
                     return;
                 }
             } else {
-                return;
+                    return;
             }
             Set<Host> hosts =  hostService.getHostsByIp(target);
             if (null != hosts && hosts.size() > 0) {

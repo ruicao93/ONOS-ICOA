@@ -177,7 +177,7 @@ public class ReactiveForwarding {
         cfgService.registerProperties(getClass());
         appId = coreService.registerApplication("org.onosproject.fwd");
 
-        packetService.addProcessor(processor, PacketProcessor.director(2));
+        packetService.addProcessor(processor, PacketProcessor.director(3));
         topologyService.addListener(topologyListener);
         readComponentConfiguration(context);
         requestIntercepts();

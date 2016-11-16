@@ -206,6 +206,10 @@ public class OxpDomainControllerImpl implements OxpDomainController {
 
     @Override
     public void addOxpSuperListener(OxpSuperListener listener) {
+        //If domain has connnected to super, call the listener direcyly
+        if (isConnectToSuper()) {
+            listener.connectToSuper(oxpSuper);
+        }
         this.oxpSuperListeners.add(listener);
     }
 
