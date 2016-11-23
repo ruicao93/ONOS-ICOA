@@ -1,6 +1,12 @@
 ONOS : Open Network Operating System
 ====================================
 
+# ONOS-ICOA项目
+
+### 项目描述
+ICOA全称：Inter Controller ONOS Application
+以东西向协议OXP作为支持在ONOS上开发APP，支持异构控制器之间通过OXP进行跨SDN域的协同工作。修改了部分ONOS源码，在后期优化中，逐渐消除对ONOS源码的修改，尽量作为一个独立的APP.
+
 ### What is ONOS?
 ONOS is a new SDN network operating system designed for high availability,
 performance, scale-out.
