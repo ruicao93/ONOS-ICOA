@@ -61,7 +61,7 @@ vim ~/.profile
 . ~/onos/tools/dev/bash_profile
 ```
 
-使环境变量其生效：
+使环境变量生效：
 
 ```
 source ~/.profile
