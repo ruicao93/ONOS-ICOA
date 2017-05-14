@@ -32,7 +32,7 @@ Checkout out our [website](http://www.onosproject.org) and our
 [tools](http://www.onosproject.org/software/#tools)
 
 ## 三. 安装教程
-1. 下载OXP源码，并切换到最新版本(v2)
+#### 1. 下载OXP源码，并切换到最新版本(v2)
 
 ```
 git clone https://github.com/paradisecr/ONOS-ICOA.git
@@ -40,7 +40,7 @@ mv ONOS-ICOA onos
 git checkout v2
 ```
 
-2. 安装ONOS依赖：
+##### 2. 安装ONOS依赖：
 方法一：使用ONOS自带脚本安装
 ```
 cd onos
@@ -50,7 +50,7 @@ cd onos
 方法二：
 手动安装依赖，参照ONOS wiki
 
-3. 添加ONOS相关环境变量
+#### 3. 添加ONOS相关环境变量
 
 ```
 vim ~/.profile
@@ -66,7 +66,7 @@ vim ~/.profile
 ```
 source ~/.profile
 ```
-4. 编译ONOS
+#### 4. 编译ONOS
 
 为使编译顺利，推荐使用国内Maven镜像源。
 
@@ -98,9 +98,9 @@ mvn clean install -DskipTests
 1. /usr/lib/jvm/jdk1.8.0_112/jre/lib/amd64/libawt_xawt.so: libXrender.so.1: cannot open shared object file: No such file or directory
 当运行环境为server版本时，缺少图形库。安装必要的图形库即可。
 网上推荐的方法(未测试)：http://www.th7.cn/Program/java/201612/1054332.shtml
-我的方法(投机取巧，安装ubuntu的图形化记事本gedit，它会帮忙安装所有图形库依赖)：sudo apt install gegit
+我的方法(投机取巧，安装ubuntu的图形化记事本gedit，它会帮忙安装所有图形库依赖)：sudo apt install gedit
 ```
-5. 启动ONOS
+#### 5. 启动ONOS
 
 ```
 ok clean
